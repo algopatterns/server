@@ -1,7 +1,7 @@
 # Algorave - RAG-Powered Code Generation Agent
 
 ## Project Overview
-Building a RAG system for code generation using documentation retrieval and Claude API. Two-phase architecture: Ingestion CLI (current phase) and API Server (future phase).
+Building a RAG system for creating music via strudel with text commands using documentation retrieval and Claude API. Two-phase architecture: Ingestion CLI (current phase) and API Server (future phase).
 
 ## Language & Tooling
 - **Go Version:** 1.21+

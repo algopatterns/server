@@ -1,7 +1,7 @@
 # algorave - RAG-Powered Code Generation Agent
 
 ## Project Context
-Building a RAG system that helps users generate code by retrieving relevant documentation and feeding it to Claude API. The system transforms user queries for better retrieval and maintains conversation context for coherent multi-turn interactions.
+Building a RAG system that helps users create music via strudel with text commands by retrieving relevant documentation and feeding it to Claude API. The system transforms user queries for better retrieval and maintains conversation context for coherent multi-turn interactions.
 
 ## Architecture Overview
 
