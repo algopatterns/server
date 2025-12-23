@@ -60,4 +60,20 @@ deps: ## Download dependencies
 	go mod tidy
 	@echo "✓ Dependencies updated"
 
+ci: ## Run CI checks locally (lint + test)
+	@echo "Running CI checks..."
+	@echo "\n→ Checking formatting..."
+	@if [ -n "$$(gofmt -s -l .)" ]; then \
+		echo "❌ Code is not formatted. Run 'make fmt' to fix."; \
+		gofmt -s -l .; \
+		exit 1; \
+	fi
+	@echo "✓ Code is formatted"
+	@echo "\n→ Running linter..."
+	@golangci-lint run || (echo "❌ Linting failed" && exit 1)
+	@echo "✓ Linting passed"
+	@echo "\n→ Running tests..."
+	@go test -v -race -coverprofile=coverage.out ./...
+	@echo "✓ All CI checks passed!"
+
 .DEFAULT_GOAL := help

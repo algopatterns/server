@@ -1,0 +1,67 @@
+name: Sync & Ingest Strudel Docs
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:  # Manual trigger via GitHub UI
+
+jobs:
+  ingest-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout algorave repo
+        uses: actions/checkout@v4
+
+      - name: Clone Strudel fork from Codeberg
+        run: |
+          git clone --depth 1 https://codeberg.org/kadetXx/strudel.git /tmp/strudel
+          echo "Cloned Strudel repo successfully"
+
+      - name: Copy documentation files
+        run: |
+          mkdir -p docs/strudel
+          # Copy all .mdx files from pages directory, preserving structure (excluding de and intro folders)
+          if [ -d "/tmp/strudel/website/src/pages" ]; then
+            cd /tmp/strudel/website/src/pages
+            find . -name "*.mdx" -type f ! -path "./de/*" ! -path "./intro/*" -exec sh -c '
+              target_dir=$(dirname "$1")
+              mkdir -p "$GITHUB_WORKSPACE/docs/strudel/$target_dir"
+              cp "$1" "$GITHUB_WORKSPACE/docs/strudel/$1"
+            ' _ {} \;
+            cd "$GITHUB_WORKSPACE"
+            echo "Copied documentation files:"
+            find docs/strudel -name "*.mdx" | wc -l
+            echo "Folder structure:"
+            find docs/strudel -type d | sort
+          else
+            echo "Error: Pages directory not found"
+            exit 1
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Run ingestion
+        run: go run cmd/ingest/main.go --docs ./docs/strudel --clear
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_CONNECTION_STRING: ${{ secrets.SUPABASE_CONNECTION_STRING }}
+
+      - name: Report success
+        if: success()
+        run: |
+          echo "✅ Documentation ingestion completed successfully"
+          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "❌ Documentation ingestion failed"
+          echo "Check the logs above for details"

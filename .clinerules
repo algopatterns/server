@@ -1,0 +1,375 @@
+# Algorave - RAG-Powered Code Generation Agent
+
+## Project Overview
+Building a RAG system for code generation using documentation retrieval and Claude API. Two-phase architecture: Ingestion CLI (current phase) and API Server (future phase).
+
+## Language & Tooling
+- **Go Version:** 1.21+
+- **Module Name:** algorave
+- **Primary Dependencies:** pgx/v5, pgvector-go
+- **APIs:** OpenAI (embeddings), Anthropic Claude (generation), Supabase (storage)
+
+## Code Style & Conventions
+
+### General Go Style
+- Follow standard Go conventions (gofmt, go vet)
+- Use short variable names in small scopes: `i`, `err`, `ctx`, `db`, `opts`
+- Longer, descriptive names for package-level variables and exported functions
+- Group imports in order: stdlib, external packages, internal packages
+- Error messages: lowercase, no trailing punctuation
+- Comments explain "why" not "what"
+- Keep functions focused and under 50 lines when possible
+
+### Code Formatting & Spacing
+- Use blank lines to separate logical blocks of code
+- Add blank line between variable declarations and conditional statements
+- Add blank line before return statements (unless it's a simple early return)
+- Add blank line between different logical operations
+- Example:
+  ```go
+  // Good: Logical separation with blank lines
+  preview := chunk.Content
+
+  if len(preview) > 200 {
+      preview = preview[:200] + "..."
+  }
+
+  t.Logf("%s\n", preview)
+
+  // Bad: Too packed, hard to read
+  preview := chunk.Content
+  if len(preview) > 200 {
+      preview = preview[:200] + "..."
+  }
+  t.Logf("%s\n", preview)
+  ```
+- Don't overuse blank lines - only where it improves readability
+- In loops/iterations, blank lines between major steps are helpful
+
+### Enforcing Formatting
+To automatically enforce these rules:
+1. **Use `golangci-lint`** (configured in `.golangci.yml`):
+   ```bash
+   golangci-lint run ./...
+   ```
+   This includes:
+   - `gofmt` and `goimports` formatters
+   - `wsl_v5` for whitespace/blank line rules
+   - `revive` for Go style conventions
+   - `errcheck`, `staticcheck`, `govet` for code quality
+   - `gosec` for security issues
+   - `funlen`, `gocyclo` for complexity checks
+
+2. **Auto-fix formatting issues**:
+   ```bash
+   golangci-lint run --fix ./...
+   ```
+
+3. **Editor setup**: Enable format-on-save in your editor
+4. **CI/CD**: Lint checks run automatically on push/PR (see `.github/workflows/lint.yml`)
+
+### File Organization
+- **internal/** - Private packages only for this project
+- **cmd/** - Executable entry points (keep main.go minimal, orchestration only)
+- Separate concerns:
+  - `types.go` for type definitions
+  - `utils.go` for helper functions
+  - Main logic in primary package files
+- One package, one clear responsibility
+
+### Naming Conventions
+- Exported types: PascalCase (`Chunk`, `ChunkOptions`, `Section`)
+- Unexported helpers: camelCase (`estimateTokens`, `extractFrontmatter`)
+- Interfaces: Action-based names ending in -er when possible
+- Constants: Use const blocks, PascalCase or SCREAMING_SNAKE_CASE depending on context
+- Test files: `*_test.go` suffix
+
+### Error Handling
+```go
+// ALWAYS provide context in errors
+if err := processFile(filename); err != nil {
+    return fmt.Errorf("failed to process document %s: %w", filename, err)
+}
+
+// Use early returns
+if err != nil {
+    return err
+}
+
+// NEVER ignore errors silently
+// NEVER use generic error messages without context
+```
+
+### Testing Standards
+- Use table-driven tests for multiple scenarios
+- Test file naming: `<package>_test.go`
+- Use `t.Logf()` for debugging output, not `fmt.Printf()`
+- Test edge cases explicitly:
+  - Empty inputs
+  - Very large inputs
+  - Nil/zero values
+  - Boundary conditions
+- For integration tests, use real files from `docs/` directory when applicable
+
+## Domain-Specific Rules
+
+### Chunking Logic
+- **Primary split:** By markdown headers (`#`, `##`, `###`, etc.)
+- **Target size:** ~800 tokens per chunk (current: `MaxTokens: 800`)
+- **Overlap:** 100 tokens between chunks (current: `OverlapTokens: 100`)
+- **CRITICAL:** Never split code blocks (triple backticks) across chunks
+- **Preserve context:** Include section headers in chunk content when `PreserveHeaders: true`
+- **Token estimation:** Use `len(text) / 4` as approximation (4 chars ≈ 1 token)
+- **Edge cases to handle:**
+  - Documents without headers (split by paragraphs)
+  - Very large sections (>MaxTokens) → split by paragraphs with overlap
+  - Nested headers → preserve hierarchy in metadata
+  - Empty sections → skip them
+
+### Metadata & Attribution
+- Always preserve source attribution: `PageName`, `PageURL`, `SectionTitle`
+- Extract and store frontmatter metadata from MDX files
+- Strip MDX-specific components before chunking (imports, JSX components)
+- Metadata should be `map[string]interface{}` for flexibility
+
+### Regex Patterns
+- Define all regex patterns as package-level variables for reuse
+- Use descriptive variable names: `frontmatterRegex`, `headerRegex`, `mdxComponentRegex`
+- Always use `(?m)` for multiline mode when matching line anchors
+- Always use `(?s)` (dotall) when matching across lines
+
+### URL Generation
+- Convert page names to lowercase
+- Replace spaces with hyphens
+- Strip `.mdx` extension
+- Prefix with `/learn/` for documentation URLs
+
+## Git & Commits
+
+### Commit Message Format
+Use conventional commits:
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `chore:` - Maintenance tasks (deps, config, setup)
+- `docs:` - Documentation changes
+- `test:` - Test additions or modifications
+- `refactor:` - Code restructuring without behavior change
+
+Examples from project history:
+- `chore: project & agents setup`
+
+### Commit Guidelines
+- Keep commits focused and atomic
+- Write clear, concise commit messages
+- Reference issue numbers when applicable
+
+## Documentation Standards
+
+### Code Comments
+- Exported functions MUST have doc comments starting with function name
+- Doc comments should be complete sentences
+- Explain complex logic inline with brief comments
+- Don't state the obvious - if code is self-explanatory, skip the comment
+
+### Project Documentation
+- Keep `README.md` up-to-date with setup instructions
+- Maintain `AGENTS.md` for architectural decisions and context
+- Reference `.clinerules` from README for coding standards
+- Update documentation when changing architecture or adding features
+
+## Architecture Patterns
+
+### Configuration
+- Use option structs for configurable behavior (`ChunkOptions`)
+- Provide sensible defaults via `DefaultOptions()` function
+- Keep configuration flat and simple
+
+### Data Flow
+- Input validation at boundaries (file reading, API calls)
+- Transform data in stages (extract → clean → chunk → process)
+- Return errors early, don't nest deeply
+
+### State Management
+- Prefer stateless functions when possible
+- Use `context.Context` for all I/O operations (database, API calls)
+- Pass dependencies explicitly, avoid global state
+
+## Performance Guidelines
+
+### Ingestion Phase
+- Target: <5 minutes for 30 pages
+- Chunking should be fast (<1 second per page)
+- Batch operations when possible (embeddings, database inserts)
+- Log progress verbosely for user feedback
+
+### Memory Management
+- Use `strings.Builder` for string concatenation in loops
+- Avoid unnecessary allocations
+- Process files one at a time, don't load all into memory
+
+## Error Handling & Logging
+
+### Ingestion CLI
+- **Fail fast:** If any chunk fails, stop the entire process
+- Provide clear error messages with context:
+  - Which file failed
+  - Which chunk number
+  - What operation failed
+  - The underlying error
+- Log progress verbosively:
+  ```
+  Processing file: notes.mdx
+  Generated 5 chunks from notes.mdx
+  Chunk 1/5: 234 chars (~58 tokens)
+  ...
+  ```
+
+### Logging Best Practices
+- Use `t.Logf()` in tests, not print statements
+- Include relevant context: file names, chunk counts, sizes
+- Log both successes and failures for debugging
+- Use separator lines for readability in test output
+
+## Dependencies & Imports
+
+### Stdlib First
+- Prefer stdlib over external dependencies when functionality overlaps
+- Use `strings`, `fmt`, `regexp` from stdlib
+- Only add external deps when necessary
+
+### Current Dependencies
+```go
+github.com/jackc/pgx/v5         // PostgreSQL driver
+github.com/pgvector/pgvector-go // Vector support for Supabase
+```
+
+### Future Dependencies (Phase 2)
+- Anthropic SDK for Claude API
+- OpenAI SDK for embeddings
+
+## Anti-Patterns to Avoid
+
+### Code Smells
+- ❌ Magic numbers (use named constants or config)
+- ❌ Deep nesting (use early returns)
+- ❌ Silent error swallowing
+- ❌ Generic variable names in large scopes (`x`, `data`, `temp`)
+- ❌ Mutating input parameters unexpectedly
+- ❌ Global mutable state
+
+### Testing Anti-Patterns
+- ❌ Tests that depend on external services without mocks
+- ❌ Tests that depend on test execution order
+- ❌ Testing implementation details instead of behavior
+- ❌ Not testing error cases
+
+## Special Considerations
+
+### Markdown/MDX Processing
+- Handle both `.md` and `.mdx` files
+- Strip MDX-specific syntax: imports, JSX components
+- Preserve markdown formatting in chunks
+- Extract YAML frontmatter before processing content
+
+### Token Counting
+- Current implementation: `len(text) / 4`
+- This is an approximation; actual tokenization may vary
+- Err on the side of smaller chunks to avoid exceeding limits
+- Future: Consider using tiktoken library for accurate counting
+
+### Code Block Preservation
+- Detect code blocks with triple backticks (with or without language specifier)
+- Never split a code block across chunks
+- If a code block + context exceeds MaxTokens, keep it intact and adjust surrounding content
+
+## Development Workflow
+
+### Adding New Features
+1. Read existing code to understand patterns
+2. Follow established file organization (types.go, utils.go, etc.)
+3. Write tests alongside implementation
+4. Update documentation if architecture changes
+5. Use conventional commits
+
+### Refactoring
+- Keep refactors separate from feature additions
+- Ensure tests pass before and after
+- Don't change behavior during refactoring
+- Explain "why" in commit message
+
+### Questions & Clarifications
+- If requirements are unclear, ask before implementing
+- Check AGENTS.md for architectural context
+- Refer to existing code for patterns
+- When in doubt, favor simplicity over cleverness
+
+## File-Specific Guidelines
+
+### chunker.go
+- Main orchestration function: `ChunkDocument()`
+- Keep chunking logic pure (no I/O)
+- Return slices of `Chunk` structs
+
+### utils.go
+- Helper functions only
+- Each function should have a single, clear purpose
+- Regex patterns defined at package level
+- String manipulation, token estimation, metadata extraction
+
+### types.go
+- Type definitions only, no logic
+- Keep types flat and simple
+- Use `interface{}` for flexible metadata
+- Document field purposes in comments
+
+### *_test.go
+- Use real documentation files when possible
+- Log detailed output for manual inspection
+- Test both success and failure cases
+- Keep tests independent of each other
+
+## Notes for AI Assistants
+
+When working on this codebase:
+1. **Always read existing code before modifying** - understand the patterns first
+2. **Explain decisions in layman terms** - if suggesting code, explain why
+3. **Follow the two-phase architecture** - we're in Phase 1 (Ingestion), Phase 2 is API server
+4. **Preserve the established patterns** - types.go, utils.go separation, etc.
+5. **Test with real data** - use actual MDX files from `docs/` directory
+6. **Context matters** - this is for RAG-powered code generation, chunking quality directly impacts retrieval quality
+7. **Fail informatively** - users need to know what went wrong and where
+8. **Log generously during development** - helps debug chunking behavior
+
+## Project-Specific Patterns
+
+### Context Usage
+- Always accept `context.Context` as first parameter for functions doing I/O
+- Pass context through all I/O operations (database, API calls)
+- Use `context.Background()` only in `main()` or tests
+
+### Database Operations
+- Always use prepared statements or parameterized queries
+- Close connections in defer
+- Use connection pooling (pgxpool)
+
+## Code Organization Best Practices
+
+### Package Structure
+- **internal/** - Private packages only for this project
+- **cmd/** - Executable entry points (keep main.go minimal, orchestration only)
+- Each package has clear responsibility
+- Avoid circular dependencies
+
+### File Organization
+- One primary type per file (exceptions OK for closely related types)
+- Group related functionality together
+- Keep files under 300 lines when possible
+- Separate concerns:
+  - `types.go` for type definitions
+  - `utils.go` for helper functions
+  - Main logic in primary package files
+
+## References
+- Architecture details: [AGENTS.md](AGENTS.md)
+- Setup instructions: [README.md](README.md)
+- Current implementation: [internal/chunker/](internal/chunker/)

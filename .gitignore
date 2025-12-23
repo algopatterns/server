@@ -36,3 +36,6 @@ vendor/
 # Build artifacts
 dist/
 build/
+
+# Documentation (fetched dynamically, not committed)
+docs/

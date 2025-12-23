@@ -1,0 +1,112 @@
+version: '2'
+run:
+  tests: true
+linters:
+  enable:
+    - errorlint
+    - funlen
+    - gocyclo
+    - gosec
+    - prealloc
+    - revive
+    - whitespace
+    - wsl_v5
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    funlen:
+      lines: 50
+      statements: 40
+    gocyclo:
+      min-complexity: 15
+    gosec:
+      excludes:
+        - G404
+        - G304
+    revive:
+      enable-all-rules: false
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+        - '-ST1000' # Disable package comment requirement
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: true
+      branch-max-lines: 2
+      case-max-lines: 0
+      default: none
+      enable:
+        - expr
+        - go
+        - inc-dec
+        - label
+        - send
+        - switch
+        - leading-whitespace
+        - trailing-whitespace
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - funlen
+          - gocyclo
+        path: _test\.go
+      - linters:
+          - gosec
+        path: _test\.go
+      - text: only one cuddle assignment allowed before if statement
+        linters: ['wsl']
+      - text: if statements should only be cuddled with assignments
+        linters: ['wsl']
+      - text: ranges should only be cuddled with assignments used in the iteration
+        linters: ['wsl']
+      - text: go statements can only invoke
+        linters: ['wsl']
+      - text: should not be cuddled if block has more than two lines
+        linters: ['wsl']
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
+formatters:
+  settings:
+    goimports:
+      local-prefixes:
+        - algorave
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
