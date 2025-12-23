@@ -1,0 +1,63 @@
+.PHONY: help ingest build test clean setup
+
+help: ## Show this help message
+	@echo 'Usage: make [target]'
+	@echo ''
+	@echo 'Available targets:'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+setup: ## Initial project setup (run once)
+	@echo "Setting up algorave..."
+	@cp .env.example .env
+	@echo "✓ Created .env file - please edit with your API keys"
+	@go mod download
+	@echo "✓ Downloaded dependencies"
+	@mkdir -p bin docs/strudel
+	@echo "✓ Created directories"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Edit .env with your API keys"
+	@echo "  2. Run schema.sql in Supabase SQL Editor"
+	@echo "  3. Add markdown docs to docs/strudel/"
+	@echo "  4. Run 'make ingest' to index documentation"
+
+ingest: ## Run document ingestion
+	@echo "Ingesting documentation..."
+	go run cmd/ingest/main.go --docs ./docs/strudel --clear
+
+ingest-no-clear: ## Run ingestion without clearing existing data
+	@echo "Ingesting documentation (no clear)..."
+	go run cmd/ingest/main.go --docs ./docs/strudel
+
+build: ## Build binaries
+	@echo "Building binaries..."
+	@mkdir -p bin
+	go build -o bin/ingest cmd/ingest/main.go
+	@echo "✓ Built bin/ingest"
+
+test: ## Run tests
+	go test -v ./...
+
+test-coverage: ## Run tests with coverage
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
+
+clean: ## Clean build artifacts
+	rm -rf bin/
+	rm -f coverage.out coverage.html
+	@echo "✓ Cleaned build artifacts"
+
+fmt: ## Format code
+	go fmt ./...
+	@echo "✓ Formatted code"
+
+lint: ## Run linter (requires golangci-lint)
+	golangci-lint run
+
+deps: ## Download dependencies
+	go mod download
+	go mod tidy
+	@echo "✓ Dependencies updated"
+
+.DEFAULT_GOAL := help
