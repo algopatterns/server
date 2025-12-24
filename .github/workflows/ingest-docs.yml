@@ -49,7 +49,7 @@ jobs:
         run: go mod download
 
       - name: Run ingestion
-        run: go run cmd/ingest/main.go --docs ./docs/strudel --clear
+        run: go run cmd/ingester/main.go --docs ./docs/strudel --clear
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_CONNECTION_STRING: ${{ secrets.SUPABASE_CONNECTION_STRING }}

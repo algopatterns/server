@@ -7,7 +7,6 @@ import (
 )
 
 func TestChunkDocument(t *testing.T) {
-	// Read a sample MDX file
 	testFile := filepath.Join("..", "..", "docs", "strudel", "learn", "notes.mdx")
 	content, err := os.ReadFile(testFile)
 

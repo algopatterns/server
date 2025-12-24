@@ -23,7 +23,7 @@ Building a RAG system that helps users create music via strudel with text comman
 ```
 algorave/
 ├── cmd/
-│   ├── ingest/
+│   ├── ingester/
 │   │   └── main.go          # Ingestion CLI entry point
 │   └── server/              # (Build later)
 │       └── main.go          # API server entry point
