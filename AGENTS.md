@@ -912,3 +912,4 @@ When implementing, pay special attention to:
 - Progress indicators: Users want to see what's happening
 - Each suggestion/change/decision should be explained in layman terms
 - If you suggest a line of code or a function, indicate why
+- Always use lowercase for all comments
