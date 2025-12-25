@@ -68,28 +68,35 @@ A 1-2 page quick reference with the most common Strudel patterns and functions. 
 #### 2. **Documentation** (Vector Search - Stateless)
 30 pages of Strudel documentation, chunked and embedded for semantic search.
 
-**Chunking Strategy - Hybrid Summary Approach:**
-- Each page creates a **PAGE_SUMMARY chunk** (embedded separately)
+**Chunking Strategy - Special Sections Approach:**
+- Each page creates **PAGE_SUMMARY chunk** (embedded separately)
+- Each page creates **PAGE_EXAMPLES chunk** if examples section exists (embedded separately)
 - Page content split into section chunks by headers
-- Summary chunks allow both high-level and detailed retrieval
+- Special chunks allow high-level overview + simple syntax examples + detailed content
 
 **Example:**
 ```
-Page: "Sound Synthesis" creates 6 chunks:
+Page: "Sound Synthesis" creates 7 chunks:
 
 Chunk 0 (Summary):
   section_title: "PAGE_SUMMARY"
   content: "SUMMARY: This page covers sound synthesis basics..."
   (This gets embedded and is searchable!)
 
-Chunks 1-5 (Sections):
+Chunk 1 (Examples):
+  section_title: "PAGE_EXAMPLES"
+  content: "sound('bd')  // Simple kick\nsound('bd hh')  // Pattern"
+  (This gets embedded and is searchable!)
+
+Chunks 2-6 (Sections):
   section_title: "Basic Sounds", "Layering", etc.
   content: Detailed section content
 ```
 
-**Retrieval:** Top 5 chunks via vector similarity search
-**Organization:** Group by page, summaries first
-**Purpose:** Provide technical documentation for requested features
+**Retrieval:** Top 5 section chunks via vector similarity search
+**Explicit Fetch:** Summary + Examples for each retrieved page (not via vector search)
+**Organization:** Group by page, summaries first, then examples, then sections
+**Purpose:** Provide overview + simple examples + technical details for requested features
 
 #### 3. **Example Strudels** (Vector Search - Contextual)
 Finished Strudel code examples from public websites, showing working patterns.
@@ -104,22 +111,30 @@ The code the user has written so far in the Strudel editor.
 **Purpose:** Context for "add this", "change that", continuity
 **Size:** Variable (200-1000 tokens)
 
-### Chunking Strategy - Summary Hybrid Approach
+### Chunking Strategy - Special Sections Approach
 
-**Why Summary Chunks?**
-Each page in the docs has a "Summary" section that provides an overview. We create this as a **separate, searchable chunk** so it can be retrieved independently.
+**Why Special Sections?**
+Each page in the docs has "Summary" and "Examples" sections that provide overview and simple syntax examples. We create these as **separate, searchable chunks** so they can be retrieved independently OR explicitly fetched when the page appears in results.
 
 **Implementation:**
 ```go
 // For each page, create:
 // 1. One PAGE_SUMMARY chunk (if summary section exists)
-// 2. Multiple section chunks for the rest of the content
+// 2. One PAGE_EXAMPLES chunk (if examples section exists)
+// 3. Multiple section chunks for the rest of the content
 
 Chunk {
     PageName: "sound-synthesis",
     SectionTitle: "PAGE_SUMMARY",  // Special marker
     Content: "SUMMARY: This page covers sound synthesis basics including...",
     Embedding: [embedded summary]
+}
+
+Chunk {
+    PageName: "sound-synthesis",
+    SectionTitle: "PAGE_EXAMPLES",  // Special marker
+    Content: "sound('bd')  // Kick drum\nsound('bd hh sd')  // Pattern sequence",
+    Embedding: [embedded examples]
 }
 
 Chunk {
@@ -130,32 +145,50 @@ Chunk {
 }
 ```
 
-**Retrieval Organization:**
-When chunks are retrieved via vector search, organize them by page with summaries first:
+**Retrieval Strategy - Hybrid Approach:**
+
+**Step 1: Vector Search**
+Search for most relevant section chunks (not summaries/examples)
+
+**Step 2: Explicit Fetch**
+For each page that appears in vector search results:
+- **Always fetch PAGE_SUMMARY** (provides context)
+- **Conditionally fetch PAGE_EXAMPLES** (if < 500 chars, ~125 tokens)
+
+**Why conditional for examples?**
+- Short examples (3-5 snippets) → Always useful, low token cost
+- Long examples (>500 chars) → Skip, rely on finished Strudels instead
+
+**Step 3: Organization**
+When chunks are retrieved via vector search, organize them by page with special sections first:
 
 ```go
 // Input: Mixed chunks from vector search
 [
   {PageName: "sound-synthesis", SectionTitle: "Basic Sounds"},
-  {PageName: "patterns", SectionTitle: "PAGE_SUMMARY"},
-  {PageName: "sound-synthesis", SectionTitle: "PAGE_SUMMARY"},
   {PageName: "patterns", SectionTitle: "Speed Control"},
+  {PageName: "sound-synthesis", SectionTitle: "Layering"},
 ]
 
-// Output: Organized by page, summaries first
+// After explicit fetch + organization:
 [
   {PageName: "sound-synthesis", SectionTitle: "PAGE_SUMMARY"},
+  {PageName: "sound-synthesis", SectionTitle: "PAGE_EXAMPLES"},
   {PageName: "sound-synthesis", SectionTitle: "Basic Sounds"},
+  {PageName: "sound-synthesis", SectionTitle: "Layering"},
   {PageName: "patterns", SectionTitle: "PAGE_SUMMARY"},
+  {PageName: "patterns", SectionTitle: "PAGE_EXAMPLES"},
   {PageName: "patterns", SectionTitle: "Speed Control"},
 ]
 ```
 
 **Benefits:**
-- Summaries are searchable (embedded independently)
-- Claude gets both high-level context AND specific details
-- No redundancy (one summary per page, not in every chunk)
-- Better retrieval for both broad and specific queries
+- Summaries are searchable (embedded independently) AND always present when page appears
+- Examples are searchable (embedded independently) AND always present when page appears (if short)
+- Claude gets: high-level context + simple syntax examples + specific details
+- No redundancy (one summary + one examples section per page)
+- Better retrieval for broad queries (summaries), specific queries (sections), and syntax questions (examples)
+- Smart token management (skip long examples, rely on finished Strudels)
 
 **Chunking Details:**
 - Target: ~500 tokens per chunk
@@ -186,7 +219,7 @@ Search Query: "audio playback, frequency, volume, amplitude, sound generation, b
 - Handles synonyms automatically (e.g., "loud" → "volume, amplitude")
 - Improves retrieval recall significantly
 
-#### Stage 2: Hybrid Retrieval (Option C - Best UX)
+#### Stage 2: Hybrid Retrieval
 
 **Hybrid strategy for BOTH docs and examples:**
 - **Primary search (60% weight):** User intent only - ensures request is always prioritized
@@ -223,7 +256,7 @@ contextualExamples := retriever.SearchExamples(ctx, contextualQuery, topK=3)
 examples := mergeAndRank(primaryExamples, contextualExamples, topK=3)
 ```
 
-**Why Hybrid (Option C)?**
+**Why Hybrid?**
 - ✅ Handles ALL scenarios well (incremental building AND pivoting)
 - ✅ User intent always dominates (60% from primary search)
 - ✅ Adds contextual integration tips (40% from contextual search)
@@ -395,13 +428,18 @@ Page: Sound Synthesis
 SUMMARY: This page covers sound synthesis basics including
 triggering samples, layering sounds, and basic pattern creation.
 
+EXAMPLES:
+sound("bd")                    // Simple kick drum
+sound("bd hh sd hh")           // Pattern sequence
+sound("bd").stack(sound("hh")) // Layering sounds
+
 SECTION: Basic Sounds
 The sound() function is the primary way to trigger samples...
 
 SECTION: Layering Sounds
 Use .stack() to layer multiple sounds together...
 
-[~2000 tokens - 5 chunks organized by page]
+[~2000 tokens - 5 chunks organized by page with summaries + examples first]
 
 ═══════════════════════════════════════════════════════════
 EXAMPLE STRUDELS FOR REFERENCE
@@ -442,8 +480,11 @@ You are a Strudel code generation assistant.
 ```
 Cheatsheet:          ~500 tokens
 Editor State:        ~200 tokens
-Documentation:       ~2000 tokens (5 chunks × 400 tokens)
-Examples:            ~1500 tokens (3 examples × 500 tokens)
+Documentation:       ~2000 tokens
+  - Summaries:       ~300 tokens (3 pages × 100)
+  - Examples:        ~375 tokens (3 pages × 125, if short)
+  - Sections:        ~1325 tokens (remaining for detailed content)
+Finished Examples:   ~1500 tokens (3 examples × 500 tokens)
 Conversation:        ~500 tokens
 Instructions:        ~100 tokens
 ─────────────────────────────────
@@ -587,7 +628,7 @@ require (
 5. internal/cheatsheet - Cheatsheet constants
 
 ### Phase 2: API Server
-1. internal/retriever - Hybrid vector search (Option C: primary + contextual) for docs and examples + query transformation
+1. internal/retriever - Hybrid vector search (primary + contextual) for docs and examples + query transformation
 2. internal/agent - Code generation with multi-source context
 3. cmd/server - REST API endpoints
 4. Frontend integration with Strudel editor
@@ -633,10 +674,12 @@ if err != nil {
 - Unit tests for chunker logic (most complex part):
   - Test markdown header splitting
   - Test summary extraction from "Summary" sections
+  - Test examples extraction from "Examples" sections
   - Test PAGE_SUMMARY chunk creation
+  - Test PAGE_EXAMPLES chunk creation
   - Test code block preservation
   - Test token counting and overlap
-  - Test edge cases (no headers, no summary, very long sections)
+  - Test edge cases (no headers, no summary, no examples, very long sections)
 - Integration tests can come later
 - Manual end-to-end testing with real docs for MVP
 
@@ -650,30 +693,142 @@ if err != nil {
 
 ### Chunker Edge Cases to Handle
 - Documents without headers (treat as single chunk or split by paragraphs)
-- Documents without "Summary" section (skip PAGE_SUMMARY chunk or use first paragraph)
+- Documents without "Summary" section (skip PAGE_SUMMARY chunk)
+- Documents without "Examples" section (skip PAGE_EXAMPLES chunk)
+- Very large examples sections (>500 chars) → Still store as PAGE_EXAMPLES chunk, but retrieval will skip it
 - Very large sections (>1000 tokens) → split by paragraphs with overlap
 - Code blocks with triple backticks → never split
 - Nested headers (h2, h3, h4) → preserve hierarchy in metadata
 - Empty sections → skip
 
-### Summary Chunk Extraction
+### Special Section Extraction
+
+**Extract both PAGE_SUMMARY and PAGE_EXAMPLES:**
+
 ```go
 // Look for sections titled "Summary" or "Overview"
 // Extract content as PAGE_SUMMARY chunk
 // Mark with section_title: "PAGE_SUMMARY"
 // Embed separately from other chunks
+
+// Look for sections titled "Examples" or "Example"
+// Extract content as PAGE_EXAMPLES chunk
+// Mark with section_title: "PAGE_EXAMPLES"
+// Embed separately from other chunks
+```
+
+**Implementation:**
+```go
+func (c *Chunker) extractSpecialSection(content string, sectionNames ...string) string {
+    for _, name := range sectionNames {
+        pattern := fmt.Sprintf(`(?i)##\s*%s\s*\n([\s\S]*?)(?:\n##|$)`, name)
+        regex := regexp.MustCompile(pattern)
+        matches := regex.FindStringSubmatch(content)
+        
+        if len(matches) > 1 {
+            return strings.TrimSpace(matches[1])
+        }
+    }
+    return ""
+}
+
+// Usage:
+summary := c.extractSpecialSection(content, "Summary", "Overview")
+examples := c.extractSpecialSection(content, "Examples", "Example")
 ```
 
 ### Retrieval Organization Logic
+
+**After vector search returns chunks:**
+
 ```go
-// After vector search returns mixed chunks:
-// 1. Separate PAGE_SUMMARY chunks from section chunks
-// 2. Group by page name, preserving first-appearance order
-// 3. For each page: insert summary first, then sections
-// 4. This gives Claude: Summary → Details per page
+// Step 1: Vector search for section chunks
+sectionChunks := r.vectorSearch(ctx, query, topK)
+
+// Step 2: Identify which pages were retrieved
+pagesFound := getUniquePagesFrom(sectionChunks)
+
+// Step 3: Explicitly fetch special chunks for each page
+for _, pageName := range pagesFound {
+    // Always fetch summary
+    summary := r.fetchSpecialChunk(ctx, pageName, "PAGE_SUMMARY")
+    if summary != nil {
+        sectionChunks = append(sectionChunks, summary)
+    }
+    
+    // Conditionally fetch examples (only if short)
+    examples := r.fetchSpecialChunk(ctx, pageName, "PAGE_EXAMPLES")
+    if examples != nil && len(examples.Content) < 500 {
+        sectionChunks = append(sectionChunks, examples)
+    }
+}
+
+// Step 4: Organize by page (special sections first, then regular sections)
+organized := r.organizeByPage(sectionChunks)
+
+// Step 5: Return top K
+return organized[:topK]
 ```
 
-### Hybrid Retrieval Strategy (Option C)
+**Organization function:**
+
+```go
+// After vector search returns mixed chunks:
+// 1. Separate PAGE_SUMMARY and PAGE_EXAMPLES chunks from section chunks
+// 2. Group by page name, preserving first-appearance order
+// 3. For each page: insert summary first, then examples, then sections
+// 4. This gives Claude: Summary → Examples → Details per page
+
+func organizeByPage(chunks []DocChunk) []DocChunk {
+    pageOrder := []string{}
+    pageSummaries := make(map[string]DocChunk)
+    pageExamples := make(map[string]DocChunk)
+    pageSections := make(map[string][]DocChunk)
+    
+    for _, chunk := range chunks {
+        // Track page order
+        if !contains(pageOrder, chunk.PageName) {
+            pageOrder = append(pageOrder, chunk.PageName)
+        }
+        
+        // Categorize chunks
+        if chunk.SectionTitle == "PAGE_SUMMARY" {
+            pageSummaries[chunk.PageName] = chunk
+        } else if chunk.SectionTitle == "PAGE_EXAMPLES" {
+            pageExamples[chunk.PageName] = chunk
+        } else {
+            pageSections[chunk.PageName] = append(pageSections[chunk.PageName], chunk)
+        }
+    }
+    
+    // Build result: summary → examples → sections per page
+    result := []DocChunk{}
+    for _, pageName := range pageOrder {
+        // Add summary first (if exists)
+        if summary, ok := pageSummaries[pageName]; ok {
+            result = append(result, summary)
+        }
+        // Add examples second (if exists)
+        if examples, ok := pageExamples[pageName]; ok {
+            result = append(result, examples)
+        }
+        // Then add sections
+        if sections, ok := pageSections[pageName]; ok {
+            result = append(result, sections...)
+        }
+    }
+    
+    return result
+}
+```
+
+**Why this approach:**
+- Ensures summaries are ALWAYS present when page appears (not just if vector search finds them)
+- Ensures examples are present when page appears AND examples are short (<500 chars)
+- Organized presentation: Overview → Syntax Examples → Details
+- Smart token management: Skip long examples, rely on finished Strudels instead
+
+### Hybrid Retrieval Strategy
 
 **Implementation approach:**
 ```go
@@ -881,7 +1036,9 @@ When implementing, pay special attention to:
 ### Chunking
 - Markdown parsing: Use regex carefully, test with varied headers
 - Summary extraction: Look for "Summary" or "Overview" sections
+- Examples extraction: Look for "Examples" or "Example" sections
 - PAGE_SUMMARY chunk creation: Mark with special section_title
+- PAGE_EXAMPLES chunk creation: Mark with special section_title
 - Token estimation: 4 chars ≈ 1 token is rough, consider using tiktoken library
 - Code block detection: Handle both ```language and ``` styles
 
@@ -891,15 +1048,16 @@ When implementing, pay special attention to:
 - Examples: embed description/tags, store code separately
 
 ### Retrieval
-- **Hybrid search (Option C):** Both docs and examples use primary + contextual searches
+- **Hybrid search:** Both docs and examples use primary + contextual searches
 - Primary search (60%): User intent only - ensures request is prioritized
 - Contextual search (40%): Intent + editor - adds integration context
 - Merge and deduplicate results, rank by similarity score
 - Editor context extraction: Parse current code for keywords (sound names, functions, notes)
 - Limit editor keywords to ~10 to prevent noise
 - Graceful degradation: if contextual search fails, use primary only
-- Organization logic: Group by page, summaries first
-- Handle missing summaries gracefully
+- **Explicit special section fetch:** Always fetch PAGE_SUMMARY when page appears, conditionally fetch PAGE_EXAMPLES (if < 500 chars)
+- Organization logic: Group by page, summaries first, then examples, then sections
+- Handle missing summaries/examples gracefully
 - Total of 4 vector searches per request (2 for docs, 2 for examples)
 
 ### Context Building
@@ -912,4 +1070,3 @@ When implementing, pay special attention to:
 - Progress indicators: Users want to see what's happening
 - Each suggestion/change/decision should be explained in layman terms
 - If you suggest a line of code or a function, indicate why
-- Always use lowercase for all comments

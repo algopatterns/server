@@ -26,7 +26,52 @@ func ChunkDocument(content, pageName string, opts ChunkOptions) ([]Chunk, error)
 	sections := splitByHeaders(content)
 
 	var chunks []Chunk
+	var summaryContent string
+	var examplesContent string
 
+	// extract special sections if they exist
+	// track indices to remove them from regular processing
+	var indicesToRemove []int
+
+	for i, section := range sections {
+		if isSummarySection(section.Title) {
+			summaryContent = extractSectionText(section.Content)
+			indicesToRemove = append(indicesToRemove, i)
+		} else if isExamplesSection(section.Title) {
+			examplesContent = extractSectionText(section.Content)
+			indicesToRemove = append(indicesToRemove, i)
+		}
+	}
+
+	// remove special sections from regular processing (in reverse order to preserve indices)
+	for i := len(indicesToRemove) - 1; i >= 0; i-- {
+		idx := indicesToRemove[i]
+		sections = append(sections[:idx], sections[idx+1:]...)
+	}
+
+	// create PAGE_SUMMARY chunk if summary was found
+	if summaryContent != "" {
+		chunks = append(chunks, Chunk{
+			PageName:     pageName,
+			PageURL:      pageURL,
+			SectionTitle: "PAGE_SUMMARY",
+			Content:      "SUMMARY: " + strings.TrimSpace(summaryContent),
+			Metadata:     metadata,
+		})
+	}
+
+	// create PAGE_EXAMPLES chunk if examples were found
+	if examplesContent != "" {
+		chunks = append(chunks, Chunk{
+			PageName:     pageName,
+			PageURL:      pageURL,
+			SectionTitle: "PAGE_EXAMPLES",
+			Content:      strings.TrimSpace(examplesContent),
+			Metadata:     metadata,
+		})
+	}
+
+	// create chunks for regular sections
 	for _, section := range sections {
 		if estimateTokens(section.Content) <= opts.MaxTokens {
 			chunks = append(chunks, Chunk{

@@ -49,7 +49,7 @@ jobs:
         run: go mod download
 
       - name: Run ingestion
-        run: go run cmd/ingester/main.go --docs ./docs/strudel --clear
+        run: go run cmd/ingester/main.go --all --clear
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_CONNECTION_STRING: ${{ secrets.SUPABASE_CONNECTION_STRING }}
@@ -57,11 +57,11 @@ jobs:
       - name: Report success
         if: success()
         run: |
-          echo "✅ Documentation ingestion completed successfully"
+          echo "✅ Ingestion completed successfully"
           echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
 
       - name: Report failure
         if: failure()
         run: |
-          echo "❌ Documentation ingestion failed"
+          echo "❌ Ingestion failed"
           echo "Check the logs above for details"

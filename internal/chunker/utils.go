@@ -136,3 +136,36 @@ func generateURL(pageName string) string {
 
 	return fmt.Sprintf("/learn/%s", url)
 }
+
+// isSummarySection checks if a section title indicates it's a summary or overview section
+func isSummarySection(title string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(title))
+	return normalized == "summary" || normalized == "overview" || normalized == "recap"
+}
+
+// isExamplesSection checks if a section title indicates it's an examples section
+func isExamplesSection(title string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(title))
+	return normalized == "examples" || normalized == "example"
+}
+
+// extractSectionText extracts the text content from a section
+// it removes the header line and returns just the content
+// preserves newlines for code blocks
+func extractSectionText(content string) string {
+	lines := strings.Split(content, "\n")
+	var contentLines []string
+
+	// skip the first line if it's a header (starts with #)
+	startIdx := 0
+	if len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[0]), "#") {
+		startIdx = 1
+	}
+
+	// collect remaining lines, preserving newlines for code blocks
+	for i := startIdx; i < len(lines); i++ {
+		contentLines = append(contentLines, lines[i])
+	}
+
+	return strings.Join(contentLines, "\n")
+}

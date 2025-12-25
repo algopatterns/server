@@ -1,4 +1,4 @@
-# Hybrid Retrieval Implementation Guide
+# Hybrid Retrieval Implementation Guide (Option C)
 
 ## Overview
 
@@ -31,21 +31,29 @@ Editor State: sound("bd").fast(2)
    └─ Contextual: "hi-hat, percussion, drums, rhythm, bd, sound, fast"
       └─ Returns 5 results
     ↓
-4. Merge & Rank (top 5)
+4. Merge & Rank (top 5 section chunks)
    → Deduplicate by chunk ID
    → Sort by similarity score
-   → Return top 5
+   → Return top 5 sections
     ↓
-5. Hybrid Example Search (Parallel)
+5. Explicit Fetch Special Sections
+   For each page in results:
+   ├─ Fetch PAGE_SUMMARY (always)
+   └─ Fetch PAGE_EXAMPLES (if < 500 chars)
+    ↓
+6. Hybrid Example Search (Parallel)
    ├─ Primary: "hi-hat, percussion, drums, rhythm"
    └─ Contextual: "hi-hat, percussion, drums, rhythm, bd, sound, fast"
     ↓
-6. Merge & Rank (top 3)
+7. Merge & Rank (top 3 finished Strudels)
     ↓
-7. Build System Prompt
-   → Cheatsheet + Editor + Docs + Examples + History
+8. Organize Docs
+   → Group by page: Summary → Examples → Sections
     ↓
-8. Generate Code
+9. Build System Prompt
+   → Cheatsheet + Editor + Docs (with examples) + Finished Strudels + History
+    ↓
+10. Generate Code
 ```
 
 ## Implementation
@@ -147,10 +155,75 @@ func (r *Retriever) HybridSearchDocs(
         return primaryRes.chunks[:min(len(primaryRes.chunks), topK)], nil
     }
     
-    // Merge and rank
+    // Merge and rank section chunks
     merged := r.mergeAndRankChunks(primaryRes.chunks, contextualRes.chunks, topK)
     
-    return merged, nil
+    // ─────────────────────────────────────────────────────────────────
+    // NEW: Explicitly fetch special sections for each page
+    // ─────────────────────────────────────────────────────────────────
+    
+    // Find unique pages in results
+    pagesFound := make(map[string]bool)
+    for _, chunk := range merged {
+        pagesFound[chunk.PageName] = true
+    }
+    
+    // Fetch special sections for each page
+    for pageName := range pagesFound {
+        // Always fetch summary
+        summary, err := r.fetchSpecialChunk(ctx, pageName, "PAGE_SUMMARY")
+        if err == nil && summary != nil {
+            merged = append(merged, *summary)
+        }
+        
+        // Conditionally fetch examples (only if short)
+        examples, err := r.fetchSpecialChunk(ctx, pageName, "PAGE_EXAMPLES")
+        if err == nil && examples != nil && len(examples.Content) < 500 {
+            merged = append(merged, *examples)
+        }
+    }
+    
+    // Organize by page (summaries → examples → sections)
+    organized := r.organizeByPage(merged)
+    
+    return organized, nil
+}
+
+// fetchSpecialChunk retrieves a special section chunk (PAGE_SUMMARY or PAGE_EXAMPLES)
+func (r *Retriever) fetchSpecialChunk(
+    ctx context.Context,
+    pageName string,
+    sectionTitle string,
+) (*Chunk, error) {
+    
+    var chunk Chunk
+    
+    err := r.db.QueryRowContext(ctx, `
+        SELECT 
+            id,
+            page_name,
+            page_url,
+            section_title,
+            content,
+            metadata
+        FROM doc_embeddings
+        WHERE page_name = $1 
+          AND section_title = $2
+        LIMIT 1
+    `, pageName, sectionTitle).Scan(
+        &chunk.ID,
+        &chunk.PageName,
+        &chunk.PageURL,
+        &chunk.SectionTitle,
+        &chunk.Content,
+        &chunk.Metadata,
+    )
+    
+    if err != nil {
+        return nil, err
+    }
+    
+    return &chunk, nil
 }
 
 // HybridSearchExamples performs primary + contextual search for examples
@@ -209,6 +282,64 @@ func (r *Retriever) HybridSearchExamples(
 ### Merge & Rank Logic
 
 ```go
+// organizeByPage groups chunks by page with special sections first
+func (r *Retriever) organizeByPage(chunks []Chunk) []Chunk {
+    // Track page order
+    pageOrder := []string{}
+    
+    // Separate chunks by type
+    pageSummaries := make(map[string]Chunk)
+    pageExamples := make(map[string]Chunk)
+    pageSections := make(map[string][]Chunk)
+    
+    for _, chunk := range chunks {
+        // Track first appearance of each page
+        if !contains(pageOrder, chunk.PageName) {
+            pageOrder = append(pageOrder, chunk.PageName)
+        }
+        
+        // Categorize chunks
+        switch chunk.SectionTitle {
+        case "PAGE_SUMMARY":
+            pageSummaries[chunk.PageName] = chunk
+        case "PAGE_EXAMPLES":
+            pageExamples[chunk.PageName] = chunk
+        default:
+            pageSections[chunk.PageName] = append(pageSections[chunk.PageName], chunk)
+        }
+    }
+    
+    // Build result: summary → examples → sections per page
+    result := []Chunk{}
+    for _, pageName := range pageOrder {
+        // Add summary first (if exists)
+        if summary, ok := pageSummaries[pageName]; ok {
+            result = append(result, summary)
+        }
+        
+        // Add examples second (if exists)
+        if examples, ok := pageExamples[pageName]; ok {
+            result = append(result, examples)
+        }
+        
+        // Then add regular sections
+        if sections, ok := pageSections[pageName]; ok {
+            result = append(result, sections...)
+        }
+    }
+    
+    return result
+}
+
+func contains(slice []string, item string) bool {
+    for _, s := range slice {
+        if s == item {
+            return true
+        }
+    }
+    return false
+}
+
 // mergeAndRankChunks combines primary and contextual results
 func (r *Retriever) mergeAndRankChunks(primary, contextual []Chunk, topK int) []Chunk {
     // Deduplicate by chunk ID
@@ -255,6 +386,57 @@ func (r *Retriever) mergeAndRankExamples(primary, contextual []Example, topK int
         return merged[:topK]
     }
     return merged
+}
+```
+
+### Special Section Chunking
+
+Documentation pages contain two special sections that get extracted separately:
+
+**PAGE_SUMMARY:** Overview of the page's content
+**PAGE_EXAMPLES:** Simple code examples demonstrating syntax
+
+```go
+// During chunking, extract these sections first
+func (c *Chunker) ChunkMarkdown(filepath, content string) ([]Chunk, error) {
+    chunks := []Chunk{}
+    pageName := extractPageName(filepath)
+    
+    // 1. Extract PAGE_SUMMARY
+    summary := extractSection(content, "Summary", "Overview")
+    if summary != "" {
+        chunks = append(chunks, Chunk{
+            PageName:     pageName,
+            SectionTitle: "PAGE_SUMMARY",
+            Content:      summary,
+        })
+    }
+    
+    // 2. Extract PAGE_EXAMPLES
+    examples := extractSection(content, "Examples", "Example")
+    if examples != "" {
+        chunks = append(chunks, Chunk{
+            PageName:     pageName,
+            SectionTitle: "PAGE_EXAMPLES",
+            Content:      examples,
+        })
+    }
+    
+    // 3. Extract regular sections (skip Summary and Examples)
+    // ...
+}
+
+func extractSection(content string, sectionNames ...string) string {
+    for _, name := range sectionNames {
+        pattern := fmt.Sprintf(`(?i)##\s*%s\s*\n([\s\S]*?)(?:\n##|$)`, name)
+        regex := regexp.MustCompile(pattern)
+        matches := regex.FindStringSubmatch(content)
+        
+        if len(matches) > 1 {
+            return strings.TrimSpace(matches[1])
+        }
+    }
+    return ""
 }
 ```
 
