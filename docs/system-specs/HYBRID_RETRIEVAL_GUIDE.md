@@ -4,6 +4,12 @@
 
 This guide provides implementation details for the hybrid retrieval system that combines primary (intent-only) and contextual (intent + editor) searches to achieve the best user experience.
 
+The system retrieves from multiple knowledge sources:
+- **Documentation:** Technical docs (30 pages) + Concept docs (6-10 MDX files) - stored in same table
+- **Example Strudels:** Finished code examples from public websites
+
+Both documentation types (technical + concepts) use identical chunking and retrieval strategies.
+
 ## Architecture Decision
 
 **Why Option C (Hybrid)?**
@@ -57,6 +63,70 @@ Editor State: sound("bd").fast(2)
 ```
 
 ## Implementation
+
+### Ingestion (Phase 1)
+
+**Three ingestion functions process different knowledge sources:**
+
+```go
+// cmd/ingester/main.go
+func main() {
+    ctx := context.Background()
+    
+    chunker := chunker.New()
+    embedder := embedder.New(os.Getenv("OPENAI_API_KEY"))
+    store := storage.New(os.Getenv("SUPABASE_CONNECTION_STRING"))
+    
+    // 1. Ingest technical documentation (30 pages)
+    log.Println("=== Ingesting Technical Docs ===")
+    IngestDocs(ctx, chunker, embedder, store)
+    
+    // 2. Ingest concept documentation (6-10 MDX files)
+    log.Println("=== Ingesting Concept Docs ===")
+    IngestConcepts(ctx, chunker, embedder, store)
+    
+    // 3. Ingest example Strudels (JSON)
+    log.Println("=== Ingesting Examples ===")
+    IngestExamples(ctx, embedder, store)
+}
+
+// IngestDocs processes technical documentation
+func IngestDocs(ctx context.Context, chunker, embedder, store) error {
+    files, _ := filepath.Glob("docs/project-docs/*.md")
+    
+    for _, file := range files {
+        content, _ := os.ReadFile(file)
+        chunks, _ := chunker.ChunkMarkdown(file, string(content))
+        
+        for _, chunk := range chunks {
+            embedding, _ := embedder.Embed(ctx, chunk.Content)
+            store.InsertDocChunk(ctx, chunk, embedding)  // → doc_embeddings table
+        }
+    }
+}
+
+// IngestConcepts processes concept documentation (MDX)
+// Uses SAME chunking logic as IngestDocs!
+func IngestConcepts(ctx context.Context, chunker, embedder, store) error {
+    files, _ := filepath.Glob("docs/concepts/*.mdx")
+    
+    for _, file := range files {
+        content, _ := os.ReadFile(file)
+        chunks, _ := chunker.ChunkMarkdown(file, string(content))  // Same chunker!
+        
+        for _, chunk := range chunks {
+            embedding, _ := embedder.Embed(ctx, chunk.Content)
+            store.InsertDocChunk(ctx, chunk, embedding)  // Same table!
+        }
+    }
+}
+```
+
+**Key points:**
+- Both use `chunker.ChunkMarkdown()` - identical chunking
+- Both store in `doc_embeddings` table - same schema
+- Differentiated by `page_url` field (`/docs/*` vs `/concepts/*`)
+- No retrieval changes needed!
 
 ### Core Retriever Structure
 
@@ -391,22 +461,31 @@ func (r *Retriever) mergeAndRankExamples(primary, contextual []Example, topK int
 
 ### Special Section Chunking
 
-Documentation pages contain two special sections that get extracted separately:
+Documentation pages (both technical and concept docs) contain two special sections that get extracted separately:
 
 **PAGE_SUMMARY:** Overview of the page's content
 **PAGE_EXAMPLES:** Simple code examples demonstrating syntax
 
+**Applies to:**
+- Technical docs: `docs/project-docs/*.md`
+- Concept docs: `docs/concepts/*.mdx`
+
+Both use identical chunking strategy:
+
 ```go
 // During chunking, extract these sections first
+// Works for both .md and .mdx files!
 func (c *Chunker) ChunkMarkdown(filepath, content string) ([]Chunk, error) {
     chunks := []Chunk{}
     pageName := extractPageName(filepath)
+    pageURL := extractPageURL(filepath)  // /docs/* or /concepts/*
     
     // 1. Extract PAGE_SUMMARY
     summary := extractSection(content, "Summary", "Overview")
     if summary != "" {
         chunks = append(chunks, Chunk{
             PageName:     pageName,
+            PageURL:      pageURL,  // Differentiates doc type
             SectionTitle: "PAGE_SUMMARY",
             Content:      summary,
         })
@@ -417,6 +496,7 @@ func (c *Chunker) ChunkMarkdown(filepath, content string) ([]Chunk, error) {
     if examples != "" {
         chunks = append(chunks, Chunk{
             PageName:     pageName,
+            PageURL:      pageURL,
             SectionTitle: "PAGE_EXAMPLES",
             Content:      examples,
         })
@@ -438,7 +518,115 @@ func extractSection(content string, sectionNames ...string) string {
     }
     return ""
 }
+
+func extractPageURL(filepath string) string {
+    // Technical docs: /docs/sound-synthesis
+    if strings.Contains(filepath, "project-docs") {
+        return "/docs/" + extractPageName(filepath)
+    }
+    
+    // Concept docs: /concepts/music-theory
+    if strings.Contains(filepath, "concepts") {
+        return "/concepts/" + extractPageName(filepath)
+    }
+    
+    return "/" + extractPageName(filepath)
+}
 ```
+
+**Example chunks created:**
+
+```
+Technical Doc: docs/project-docs/sound-synthesis.md
+  ↓
+Chunk: {
+  PageName: "sound-synthesis",
+  PageURL: "/docs/sound-synthesis",
+  SectionTitle: "PAGE_SUMMARY",
+  Content: "SUMMARY: This page covers sound synthesis..."
+}
+
+Concept Doc: docs/concepts/music-theory.mdx
+  ↓
+Chunk: {
+  PageName: "music-theory",
+  PageURL: "/concepts/music-theory",
+  SectionTitle: "PAGE_SUMMARY",
+  Content: "SUMMARY: Essential music theory for live coding..."
+}
+```
+
+Both stored in `doc_embeddings` table, differentiated by `page_url`.
+
+### Mixed Retrieval Example
+
+**How retrieval returns both technical and concept docs:**
+
+```go
+// User query
+query := "how to create tension in my track"
+
+// Hybrid search (same function for both doc types!)
+docs := retriever.HybridSearchDocs(ctx, query, editorState, 5)
+
+// Results: Mixed from both technical and concept docs
+```
+
+**Retrieved chunks (mixed):**
+
+```
+1. music-theory (/concepts) - "Polyrhythm Basics" (0.95) ← Concept!
+   Content: "POLYRHYTHM: Multiple rhythms create tension..."
+
+2. patterns (/docs) - "Speed Control" (0.88) ← Technical!
+   Content: "The .fast() function speeds up patterns..."
+
+3. composition-techniques (/concepts) - "Building Tension" (0.85) ← Concept!
+   Content: "Techniques: filter sweeps, polyrhythms, dynamics..."
+
+4. effects (/docs) - "Filter Sweeps" (0.82) ← Technical!
+   Content: "Use .cutoff() to create filter sweeps..."
+
+5. common-patterns (/concepts) - "Tension Patterns" (0.80) ← Concept!
+   Content: "// BUILD-UP\nsound(...).cutoff(sine.range(...))"
+```
+
+**After organization (summaries + examples added):**
+
+```
+═══════════════════════════════════════
+RELEVANT DOCUMENTATION
+═══════════════════════════════════════
+
+─────────────────────────────────────────
+Page: Music Theory (Concept Doc)
+─────────────────────────────────────────
+SUMMARY: Essential music theory for live coding...
+
+EXAMPLES:
+sound("bd").fast(4).stack(sound("hh").fast(3))
+
+SECTION: Polyrhythm Basics
+POLYRHYTHM: Multiple rhythms create tension...
+
+─────────────────────────────────────────
+Page: Patterns (Technical Doc)
+─────────────────────────────────────────
+SUMMARY: Pattern manipulation functions...
+
+EXAMPLES:
+sound("bd").fast(2)
+
+SECTION: Speed Control
+The .fast() function speeds up patterns...
+
+[... 3 more pages with mix of technical + concept docs ...]
+```
+
+**Result:** Claude gets:
+- **HOW** to do it (technical docs)
+- **WHY/WHEN** to use it (concept docs)
+- **Complete understanding!**
 
 ### Editor Keyword Extraction
 

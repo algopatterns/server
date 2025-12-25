@@ -23,16 +23,16 @@ setup: ## Initial project setup (run once)
 
 ingest: ## Run document ingestion
 	@echo "Ingesting documentation..."
-	go run cmd/ingester/main.go --docs ./docs/strudel --clear
+	go run ./cmd/ingester all --clear
 
 ingest-no-clear: ## Run ingestion without clearing existing data
 	@echo "Ingesting documentation (no clear)..."
-	go run cmd/ingester/main.go --docs ./docs/strudel
+	go run ./cmd/ingester all
 
 build: ## Build binaries
 	@echo "Building binaries..."
 	@mkdir -p bin
-	go build -o bin/ingester cmd/ingester/main.go
+	go build -o bin/ingester ./cmd/ingester
 	@echo "✓ Built bin/ingester"
 
 test: ## Run tests
