@@ -16,13 +16,13 @@ func DefaultOptions() ChunkOptions {
 	}
 }
 
-func ChunkDocument(content, pageName string, opts ChunkOptions) ([]Chunk, error) {
+func ChunkDocument(content, sourcePathname string, pageName string, opts ChunkOptions) ([]Chunk, error) {
 	metadata := extractFrontmatter(content)
 	content = frontmatterRegex.ReplaceAllString(content, "")
 	content = importRegex.ReplaceAllString(content, "")
 	content = stripMDXComponents(content)
 
-	pageURL := generateURL(pageName)
+	pageURL := generateURL(sourcePathname, pageName)
 	sections := splitByHeaders(content)
 
 	var chunks []Chunk
@@ -143,7 +143,7 @@ func ChunkDocuments(docsPath string) ([]Chunk, []error) {
 		}
 
 		// chunk the document
-		chunks, err := ChunkDocument(string(content), pageName, opts)
+		chunks, err := ChunkDocument(string(content), strings.TrimPrefix(docsPath, "./"), pageName, opts)
 		if err != nil {
 			log.Printf("warning: failed to chunk document %s: %v", path, err)
 			errors = append(errors, fmt.Errorf("chunk %s: %w", path, err))

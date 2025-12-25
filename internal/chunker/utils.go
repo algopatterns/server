@@ -126,13 +126,13 @@ func stripMDXComponents(content string) string {
 	return mdxComponentRegex.ReplaceAllString(content, "")
 }
 
-func generateURL(pageName string) string {
+func generateURL(urlPrefix string, pageName string) string {
 	name := strings.TrimSuffix(pageName, ".mdx")
 
 	url := strings.ToLower(name)
 	url = strings.ReplaceAll(url, " ", "-")
 
-	return fmt.Sprintf("/learn/%s", url)
+	return fmt.Sprintf("/%s/%s", urlPrefix, url)
 }
 
 // isSummarySection checks if a section title indicates it's a summary or overview section

@@ -53,6 +53,7 @@ func (c *Client) InsertChunksBatch(ctx context.Context, chunks []chunker.Chunk, 
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
+
 	defer tx.Rollback(ctx)
 
 	batch := &pgx.Batch{}

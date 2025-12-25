@@ -16,7 +16,7 @@ func TestChunkDocument(t *testing.T) {
 
 	opts := DefaultOptions()
 
-	chunks, err := ChunkDocument(string(content), "notes.mdx", opts)
+	chunks, err := ChunkDocument(string(content), "learn", "notes.mdx", opts)
 	if err != nil {
 		t.Fatalf("ChunkDocument failed: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestSpecialSectionExtraction(t *testing.T) {
 
 	opts := DefaultOptions()
 
-	chunks, err := ChunkDocument(testContent, "test-page.mdx", opts)
+	chunks, err := ChunkDocument(testContent, "/docs/strudel", "test-page.mdx", opts)
 	if err != nil {
 		t.Fatalf("ChunkDocument failed: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestRealDocumentWithExamples(t *testing.T) {
 
 	opts := DefaultOptions()
 
-	chunks, err := ChunkDocument(string(content), "first-sounds.mdx", opts)
+	chunks, err := ChunkDocument(string(content), "/docs/strudel", "first-sounds.mdx", opts)
 	if err != nil {
 		t.Fatalf("ChunkDocument failed: %v", err)
 	}
