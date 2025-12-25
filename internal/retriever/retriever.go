@@ -6,56 +6,34 @@ import (
 	"log"
 	"sync"
 
-	"github.com/algorave/server/internal/llm"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pgvector/pgvector-go"
 )
 
-// creates a new retriever client with auto-configuration from environment
-func NewClient(ctx context.Context) (*Client, error) {
-	config, err := loadRetrieverConfig()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to load retriever config: %w", err)
-	}
-
-	return NewClientWithConfig(ctx, config)
-}
-
-// creates a new retriever client with explicit configuration
-func NewClientWithConfig(ctx context.Context, config *RetrieverConfig) (*Client, error) {
-	pool, err := pgxpool.New(ctx, config.DBConnString)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create connection pool: %w", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	// initialize LLM client (loads its own config from env)
-	llmClient, err := llm.NewLLM(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create LLM client: %w", err)
-	}
-
+// New creates a retriever client with injected dependencies.
+// The caller owns the lifecycle of db, embedder, and transformer.
+func New(db *pgxpool.Pool, embedder Embedder, transformer QueryTransformer) *Client {
 	return &Client{
-		pool: pool,
-		llm:  llmClient,
-		topK: config.TopK,
-	}, nil
+		db:          db,
+		embedder:    embedder,
+		transformer: transformer,
+		topK:        defaultTopK,
+	}
 }
 
-// Close closes the retriever client
-func (c *Client) Close() {
-	c.pool.Close()
+// NewWithTopK creates a retriever with a custom topK value
+func NewWithTopK(db *pgxpool.Pool, embedder Embedder, transformer QueryTransformer, topK int) *Client {
+	return &Client{
+		db:          db,
+		embedder:    embedder,
+		transformer: transformer,
+		topK:        topK,
+	}
 }
 
-// performs a vector similarity search on doc_embeddings
+// VectorSearch performs a vector similarity search on doc_embeddings
 func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) ([]SearchResult, error) {
-	embedding, err := c.llm.GenerateEmbedding(ctx, queryText)
-
+	embedding, err := c.embedder.GenerateEmbedding(ctx, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 	}
@@ -71,18 +49,15 @@ func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) (
 		FROM search_docs($1, $2)
 	`
 
-	rows, err := c.pool.Query(ctx, query, pgvector.NewVector(embedding), topK)
+	rows, err := c.db.Query(ctx, query, pgvector.NewVector(embedding), topK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}
-
 	defer rows.Close()
 
 	var results []SearchResult
-
 	for rows.Next() {
 		var result SearchResult
-
 		err := rows.Scan(
 			&result.ID,
 			&result.PageName,
@@ -91,11 +66,9 @@ func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) (
 			&result.Content,
 			&result.Similarity,
 		)
-
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-
 		results = append(results, result)
 	}
 
@@ -106,10 +79,9 @@ func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) (
 	return results, nil
 }
 
-// performs a vector similarity search on example_strudels
+// SearchExamples performs a vector similarity search on example_strudels
 func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int) ([]ExampleResult, error) {
-	embedding, err := c.llm.GenerateEmbedding(ctx, queryText)
-
+	embedding, err := c.embedder.GenerateEmbedding(ctx, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 	}
@@ -126,16 +98,13 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 		FROM search_examples($1, $2)
 	`
 
-	rows, err := c.pool.Query(ctx, query, pgvector.NewVector(embedding), topK)
-
+	rows, err := c.db.Query(ctx, query, pgvector.NewVector(embedding), topK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}
-
 	defer rows.Close()
 
 	var results []ExampleResult
-
 	for rows.Next() {
 		var result ExampleResult
 		err := rows.Scan(
@@ -147,11 +116,9 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 			&result.URL,
 			&result.Similarity,
 		)
-
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-
 		results = append(results, result)
 	}
 
@@ -162,9 +129,10 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 	return results, nil
 }
 
-// implements hybrid search (primary + contextual) for documentation
+// HybridSearchDocs implements hybrid search (primary + contextual) for documentation
 func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState string, topK int) ([]SearchResult, error) {
-	searchQuery, err := c.llm.TransformQuery(ctx, userQuery)
+	// transform query to add technical keywords
+	searchQuery, err := c.transformer.TransformQuery(ctx, userQuery)
 	if err != nil {
 		log.Printf("query transformation failed, using original query: %v", err)
 		searchQuery = userQuery
@@ -182,7 +150,6 @@ func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState st
 
 	// primary search (60% weight) - user intent only
 	wg.Add(1)
-
 	go func() {
 		defer wg.Done()
 		primaryResults, primaryErr = c.VectorSearch(ctx, searchQuery, primaryK)
@@ -191,7 +158,6 @@ func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState st
 	// contextual search (40% weight) - if editor has content
 	if editorContext != "" {
 		wg.Add(1)
-
 		go func() {
 			defer wg.Done()
 			contextualQuery := searchQuery + " " + editorContext
@@ -227,8 +193,7 @@ func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState st
 // HybridSearchExamples implements hybrid search (primary + contextual) for examples
 func (c *Client) HybridSearchExamples(ctx context.Context, userQuery, editorState string, topK int) ([]ExampleResult, error) {
 	// transform query to add technical keywords
-	searchQuery, err := c.llm.TransformQuery(ctx, userQuery)
-
+	searchQuery, err := c.transformer.TransformQuery(ctx, userQuery)
 	if err != nil {
 		log.Printf("query transformation failed, using original query: %v", err)
 		searchQuery = userQuery

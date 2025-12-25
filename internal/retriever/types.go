@@ -1,22 +1,30 @@
 package retriever
 
 import (
-	"github.com/algorave/server/internal/llm"
+	"context"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// RetrieverConfig holds configuration for the retriever client
-type RetrieverConfig struct {
-	DBConnString string
-	TopK         int
+// Embedder generates embeddings from text (narrow interface)
+type Embedder interface {
+	GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
 }
 
+// QueryTransformer expands user queries with technical keywords (narrow interface)
+type QueryTransformer interface {
+	TransformQuery(ctx context.Context, userQuery string) (string, error)
+}
+
+// Client performs vector similarity search on documentation and examples
 type Client struct {
-	pool *pgxpool.Pool
-	llm  llm.LLM
-	topK int
+	db          *pgxpool.Pool
+	embedder    Embedder
+	transformer QueryTransformer
+	topK        int
 }
 
+// SearchResult represents a document chunk from vector search
 type SearchResult struct {
 	ID           string
 	PageName     string
@@ -27,6 +35,7 @@ type SearchResult struct {
 	Metadata     map[string]interface{}
 }
 
+// ExampleResult represents an example Strudel from vector search
 type ExampleResult struct {
 	ID          string
 	Title       string

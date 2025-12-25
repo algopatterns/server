@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -129,7 +130,7 @@ func (c *Client) fetchSpecialChunk(ctx context.Context, pageName, sectionTitle s
 	`
 
 	var result SearchResult
-	err := c.pool.QueryRow(ctx, query, pageName, sectionTitle).Scan(
+	err := c.db.QueryRow(ctx, query, pageName, sectionTitle).Scan(
 		&result.ID,
 		&result.PageName,
 		&result.PageURL,
@@ -177,6 +178,7 @@ func extractEditorKeywords(editorState string) string {
 
 	// extract function calls: .fast(2) → "fast"
 	funcRegex := regexp.MustCompile(`\.(\w+)\(`)
+
 	for _, match := range funcRegex.FindAllStringSubmatch(editorState, -1) {
 		if len(match) > 1 {
 			keywords = append(keywords, match[1])
@@ -185,6 +187,7 @@ func extractEditorKeywords(editorState string) string {
 
 	// deduplicate and limit to ~10 keywords max to avoid noise
 	uniqueKeywords := uniqueStrings(keywords)
+
 	if len(uniqueKeywords) > 10 {
 		uniqueKeywords = uniqueKeywords[:10]
 	}
@@ -257,12 +260,7 @@ func uniqueStrings(slice []string) []string {
 
 // contains checks if a string slice contains a string
 func contains(slice []string, str string) bool {
-	for _, s := range slice {
-		if s == str {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, str)
 }
 
 // helper to split space-separated words

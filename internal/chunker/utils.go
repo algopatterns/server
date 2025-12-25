@@ -8,7 +8,7 @@ import (
 
 var (
 	frontmatterRegex  = regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
-	headerRegex       = regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
+	headerRegex       = regexp.MustCompile(`(?m)^\s*(#{1,6})\s+(.+)$`)
 	mdxComponentRegex = regexp.MustCompile(`<[A-Z]\w+[^>]*>.*?</[A-Z]\w+>|<[A-Z]\w+[^/>]*/>`)
 	importRegex       = regexp.MustCompile(`(?m)^import\s+.*$`)
 )

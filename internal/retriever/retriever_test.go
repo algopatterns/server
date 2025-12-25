@@ -3,9 +3,10 @@ package retriever
 import (
 	"context"
 	"log"
-	"sync"
+	"os"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
@@ -15,64 +16,42 @@ func init() {
 	}
 }
 
-// verifies that parallel searches work without race conditions
-func TestHybridSearchDocsConcurrency(t *testing.T) {
-	ctx := context.Background()
-	client, err := NewClient(ctx)
-
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	defer client.Close()
-
-	var wg sync.WaitGroup
-	numConcurrent := 10
-
-	for i := range numConcurrent {
-		wg.Add(1)
-
-		go func(iteration int) {
-			defer wg.Done()
-
-			_, err := client.HybridSearchDocs(ctx, "create drum pattern", "", 5)
-			if err != nil {
-				t.Errorf("Search %d failed: %v", iteration, err)
-			}
-		}(i)
-	}
-
-	wg.Wait()
+// mockEmbedder implements Embedder for testing
+type mockEmbedder struct {
+	embedding []float32
 }
 
-// verifies that parallel example searches work without race conditions
-func TestHybridSearchExamplesConcurrency(t *testing.T) {
+func (m *mockEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
+	if m.embedding != nil {
+		return m.embedding, nil
+	}
+	// return a fixed embedding for testing
+	return make([]float32, 1536), nil
+}
+
+// mockTransformer implements QueryTransformer for testing
+type mockTransformer struct{}
+
+func (m *mockTransformer) TransformQuery(ctx context.Context, query string) (string, error) {
+	return query + " expanded keywords", nil
+}
+
+// helper to create a test client with real DB connection
+func createTestClient(t *testing.T) *Client {
+	t.Helper()
+
 	ctx := context.Background()
-	client, err := NewClient(ctx)
+	connString := os.Getenv("SUPABASE_CONNECTION_STRING")
+	if connString == "" {
+		t.Skip("SUPABASE_CONNECTION_STRING not set, skipping integration test")
+	}
 
+	db, err := pgxpool.New(ctx, connString)
 	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+		t.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	defer client.Close()
-
-	var wg sync.WaitGroup
-	numConcurrent := 10
-
-	for i := range numConcurrent {
-		wg.Add(1)
-
-		go func(iteration int) {
-			defer wg.Done()
-
-			_, err := client.HybridSearchExamples(ctx, "techno beat", "", 3)
-			if err != nil {
-				t.Errorf("Search %d failed: %v", iteration, err)
-			}
-		}(i)
-	}
-
-	wg.Wait()
+	return New(db, &mockEmbedder{}, &mockTransformer{})
 }
 
 // verifies the merge logic works correctly

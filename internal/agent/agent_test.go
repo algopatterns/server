@@ -8,43 +8,29 @@ import (
 	"github.com/algorave/server/internal/retriever"
 )
 
-// mockLLM implements the llm.LLM interface for testing
-type mockLLM struct {
-	transformQueryFunc    func(ctx context.Context, query string) (string, error)
-	generateEmbeddingFunc func(ctx context.Context, text string) ([]float32, error)
-	generateTextFunc      func(ctx context.Context, req llm.TextGenerationRequest) (string, error)
+// implements TextGenerator for testing
+type mockTextGenerator struct {
+	generateTextFunc func(ctx context.Context, req llm.TextGenerationRequest) (string, error)
+	model            string
 }
 
-func (m *mockLLM) TransformQuery(ctx context.Context, query string) (string, error) {
-	if m.transformQueryFunc != nil {
-		return m.transformQueryFunc(ctx, query)
-	}
-	return query, nil
-}
-
-func (m *mockLLM) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
-	if m.generateEmbeddingFunc != nil {
-		return m.generateEmbeddingFunc(ctx, text)
-	}
-	return []float32{0.1, 0.2, 0.3}, nil
-}
-
-func (m *mockLLM) GenerateEmbeddings(ctx context.Context, texts []string) ([][]float32, error) {
-	embeddings := make([][]float32, len(texts))
-	for i := range texts {
-		embeddings[i] = []float32{0.1, 0.2, 0.3}
-	}
-	return embeddings, nil
-}
-
-func (m *mockLLM) GenerateText(ctx context.Context, req llm.TextGenerationRequest) (string, error) {
+func (m *mockTextGenerator) GenerateText(ctx context.Context, req llm.TextGenerationRequest) (string, error) {
 	if m.generateTextFunc != nil {
 		return m.generateTextFunc(ctx, req)
 	}
+
 	return "sound(\"bd\").fast(4)", nil
 }
 
-// mockRetriever implements a basic retriever for testing
+func (m *mockTextGenerator) Model() string {
+	if m.model != "" {
+		return m.model
+	}
+
+	return "mock-model"
+}
+
+// implements Retriever for testing
 type mockRetriever struct {
 	hybridSearchDocsFunc     func(ctx context.Context, query, editorState string, k int) ([]retriever.SearchResult, error)
 	hybridSearchExamplesFunc func(ctx context.Context, query, editorState string, k int) ([]retriever.ExampleResult, error)
@@ -54,6 +40,7 @@ func (m *mockRetriever) HybridSearchDocs(ctx context.Context, query, editorState
 	if m.hybridSearchDocsFunc != nil {
 		return m.hybridSearchDocsFunc(ctx, query, editorState, k)
 	}
+
 	return []retriever.SearchResult{
 		{
 			PageName:     "Sound",
@@ -68,6 +55,7 @@ func (m *mockRetriever) HybridSearchExamples(ctx context.Context, query, editorS
 	if m.hybridSearchExamplesFunc != nil {
 		return m.hybridSearchExamplesFunc(ctx, query, editorState, k)
 	}
+
 	return []retriever.ExampleResult{
 		{
 			Title:       "Four on the floor",
@@ -79,13 +67,11 @@ func (m *mockRetriever) HybridSearchExamples(ctx context.Context, query, editorS
 	}, nil
 }
 
-func (m *mockRetriever) Close() {}
-
-func TestNewAgentWithDeps(t *testing.T) {
+func TestNew(t *testing.T) {
 	mockRet := &mockRetriever{}
-	mockLLMClient := &mockLLM{}
+	mockGen := &mockTextGenerator{}
 
-	agent := NewAgentWithDeps(mockRet, mockLLMClient)
+	agent := New(mockRet, mockGen)
 
 	if agent == nil {
 		t.Fatal("expected agent to be created")
@@ -95,8 +81,8 @@ func TestNewAgentWithDeps(t *testing.T) {
 		t.Error("expected retriever to be set correctly")
 	}
 
-	if agent.llm != mockLLMClient {
-		t.Error("expected llm to be set correctly")
+	if agent.generator != mockGen {
+		t.Error("expected generator to be set correctly")
 	}
 }
 
@@ -104,7 +90,7 @@ func TestGenerateCode(t *testing.T) {
 	ctx := context.Background()
 
 	mockRet := &mockRetriever{}
-	mockLLMClient := &mockLLM{
+	mockGen := &mockTextGenerator{
 		generateTextFunc: func(ctx context.Context, req llm.TextGenerationRequest) (string, error) {
 			// verify system prompt includes cheatsheet
 			if req.SystemPrompt == "" {
@@ -120,7 +106,7 @@ func TestGenerateCode(t *testing.T) {
 		},
 	}
 
-	agent := NewAgentWithDeps(mockRet, mockLLMClient)
+	agent := New(mockRet, mockGen)
 
 	req := GenerateRequest{
 		UserQuery:           "make a drum beat",
@@ -128,7 +114,7 @@ func TestGenerateCode(t *testing.T) {
 		ConversationHistory: []Message{},
 	}
 
-	resp, err := agent.GenerateCode(ctx, req)
+	resp, err := agent.Generate(ctx, req)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -154,7 +140,7 @@ func TestGenerateCodeWithConversationHistory(t *testing.T) {
 	ctx := context.Background()
 
 	mockRet := &mockRetriever{}
-	mockLLMClient := &mockLLM{
+	mockGen := &mockTextGenerator{
 		generateTextFunc: func(ctx context.Context, req llm.TextGenerationRequest) (string, error) {
 			// verify conversation history is included
 			if len(req.Messages) != 3 { // 2 history + 1 current
@@ -165,7 +151,7 @@ func TestGenerateCodeWithConversationHistory(t *testing.T) {
 		},
 	}
 
-	agent := NewAgentWithDeps(mockRet, mockLLMClient)
+	agent := New(mockRet, mockGen)
 
 	req := GenerateRequest{
 		UserQuery:   "make it faster",
@@ -176,7 +162,7 @@ func TestGenerateCodeWithConversationHistory(t *testing.T) {
 		},
 	}
 
-	resp, err := agent.GenerateCode(ctx, req)
+	resp, err := agent.Generate(ctx, req)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -189,8 +175,6 @@ func TestGenerateCodeWithConversationHistory(t *testing.T) {
 func TestGetCheatsheet(t *testing.T) {
 	cheatsheet := getCheatsheet()
 
-	// Note: This test may return empty if run from wrong directory
-	// In production, the server runs from project root where resources/ exists
 	if cheatsheet != "" && len(cheatsheet) < 100 {
 		t.Error("expected cheatsheet to have substantial content if loaded")
 	}
@@ -231,41 +215,37 @@ func TestBuildSystemPrompt(t *testing.T) {
 	}
 
 	// verify cheatsheet is included
-	if !contains(prompt, "STRUDEL QUICK REFERENCE") {
+	if !containsSubstr(prompt, "STRUDEL QUICK REFERENCE") {
 		t.Error("expected prompt to include cheatsheet section")
 	}
 
 	// verify editor state is included
-	if !contains(prompt, "CURRENT EDITOR STATE") {
+	if !containsSubstr(prompt, "CURRENT EDITOR STATE") {
 		t.Error("expected prompt to include editor state section")
 	}
 
 	// verify docs are included
-	if !contains(prompt, "RELEVANT DOCUMENTATION") {
+	if !containsSubstr(prompt, "RELEVANT DOCUMENTATION") {
 		t.Error("expected prompt to include documentation section")
 	}
 
 	// verify examples are included
-	if !contains(prompt, "EXAMPLE STRUDELS") {
+	if !containsSubstr(prompt, "EXAMPLE STRUDELS") {
 		t.Error("expected prompt to include examples section")
 	}
 
 	// verify instructions are included
-	if !contains(prompt, "INSTRUCTIONS") {
+	if !containsSubstr(prompt, "INSTRUCTIONS") {
 		t.Error("expected prompt to include instructions section")
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s != "" && substr != "" &&
-		(s == substr || len(s) > len(substr) && hasSubstring(s, substr))
-}
-
-func hasSubstring(s, substr string) bool {
+func containsSubstr(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {
 			return true
 		}
 	}
+
 	return false
 }

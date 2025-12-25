@@ -68,6 +68,10 @@ func NewAnthropicTransformer(config AnthropicConfig) *AnthropicTransformer {
 	}
 }
 
+func (t *AnthropicTransformer) Model() string {
+	return t.config.Model
+}
+
 func (t *AnthropicTransformer) TransformQuery(ctx context.Context, userQuery string) (string, error) {
 	reqBody := transformRequest{
 		Model:       t.config.Model,

@@ -26,6 +26,7 @@ type Embedder interface {
 // generates text/code from prompts
 type TextGenerator interface {
 	GenerateText(ctx context.Context, req TextGenerationRequest) (string, error)
+	Model() string
 }
 
 // TextGenerationRequest contains inputs for text generation
