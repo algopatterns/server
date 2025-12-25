@@ -53,11 +53,13 @@ func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}
+
 	defer rows.Close()
 
 	var results []SearchResult
 	for rows.Next() {
 		var result SearchResult
+
 		err := rows.Scan(
 			&result.ID,
 			&result.PageName,
@@ -66,9 +68,11 @@ func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) (
 			&result.Content,
 			&result.Similarity,
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
+
 		results = append(results, result)
 	}
 
@@ -102,11 +106,13 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}
+
 	defer rows.Close()
 
 	var results []ExampleResult
 	for rows.Next() {
 		var result ExampleResult
+
 		err := rows.Scan(
 			&result.ID,
 			&result.Title,
@@ -116,9 +122,11 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 			&result.URL,
 			&result.Similarity,
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
+
 		results = append(results, result)
 	}
 
@@ -218,6 +226,7 @@ func (c *Client) HybridSearchExamples(ctx context.Context, userQuery, editorStat
 	// contextual search (40% weight) - if editor has content
 	if editorContext != "" {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
 			contextualQuery := searchQuery + " " + editorContext

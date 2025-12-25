@@ -4,21 +4,24 @@ import (
 	"context"
 	"log"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/algorave/server/internal/strudel"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
+
+type mockTransformer struct{}
+
+type mockEmbedder struct {
+	embedding []float32
+}
 
 func init() {
 	if err := godotenv.Load("../../.env"); err != nil {
 		log.Printf("Warning: Could not load .env file: %v", err)
 	}
-}
-
-// mockEmbedder implements Embedder for testing
-type mockEmbedder struct {
-	embedding []float32
 }
 
 func (m *mockEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
@@ -28,9 +31,6 @@ func (m *mockEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]fl
 	// return a fixed embedding for testing
 	return make([]float32, 1536), nil
 }
-
-// mockTransformer implements QueryTransformer for testing
-type mockTransformer struct{}
 
 func (m *mockTransformer) TransformQuery(ctx context.Context, query string) (string, error) {
 	return query + " expanded keywords", nil
@@ -124,7 +124,7 @@ func TestMergeAndRankExamples(t *testing.T) {
 	}
 
 	// verify ordering by similarity (descending)
-	for i := range len(merged) - 1 {
+	for i := 0; i < len(merged)-1; i++ {
 		if merged[i].Similarity < merged[i+1].Similarity {
 			t.Errorf("Results not sorted correctly: %f < %f at position %d",
 				merged[i].Similarity, merged[i+1].Similarity, i)
@@ -195,7 +195,7 @@ func TestExtractEditorKeywords(t *testing.T) {
 					// split result to check individual keywords
 					resultWords := make(map[string]bool)
 
-					for _, word := range splitWords(result) {
+					for _, word := range strings.Split(result, " ") {
 						resultWords[word] = true
 					}
 
@@ -211,7 +211,7 @@ func TestExtractEditorKeywords(t *testing.T) {
 // verifies deduplication utility
 func TestUniqueStrings(t *testing.T) {
 	input := []string{"a", "b", "a", "c", "b", "d"}
-	result := uniqueStrings(input)
+	result := strudel.UniqueStrings(input)
 
 	if len(result) != 4 {
 		t.Errorf("Expected 4 unique strings, got %d", len(result))

@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"regexp"
 	"slices"
 	"sort"
-	"strings"
 	"sync"
+
+	"github.com/algorave/server/internal/strudel"
 )
 
 const (
@@ -151,48 +151,9 @@ func (c *Client) fetchSpecialChunk(ctx context.Context, pageName, sectionTitle s
 }
 
 // extractEditorKeywords parses editor state for contextual keywords
+// Uses the shared strudel package for consistent parsing
 func extractEditorKeywords(editorState string) string {
-	if editorState == "" {
-		return ""
-	}
-
-	keywords := []string{}
-
-	// extract sound sample names: sound("bd") → "bd"
-	soundRegex := regexp.MustCompile(`sound\("(\w+)"\)`)
-	for _, match := range soundRegex.FindAllStringSubmatch(editorState, -1) {
-		if len(match) > 1 {
-			keywords = append(keywords, match[1])
-		}
-	}
-
-	// extract note names: note("c e g") → "c e g"
-	noteRegex := regexp.MustCompile(`note\("([^"]+)"\)`)
-	for _, match := range noteRegex.FindAllStringSubmatch(editorState, -1) {
-		if len(match) > 1 {
-			// split notes and add individually
-			notes := strings.Fields(match[1])
-			keywords = append(keywords, notes...)
-		}
-	}
-
-	// extract function calls: .fast(2) → "fast"
-	funcRegex := regexp.MustCompile(`\.(\w+)\(`)
-
-	for _, match := range funcRegex.FindAllStringSubmatch(editorState, -1) {
-		if len(match) > 1 {
-			keywords = append(keywords, match[1])
-		}
-	}
-
-	// deduplicate and limit to ~10 keywords max to avoid noise
-	uniqueKeywords := uniqueStrings(keywords)
-
-	if len(uniqueKeywords) > 10 {
-		uniqueKeywords = uniqueKeywords[:10]
-	}
-
-	return strings.Join(uniqueKeywords, " ")
+	return strudel.ExtractKeywords(editorState)
 }
 
 // mergeAndRankDocs merges and deduplicates doc search results, ranking by similarity
@@ -245,43 +206,7 @@ func mergeAndRankExamples(primary, contextual []ExampleResult, topK int) []Examp
 	return merged
 }
 
-// uniqueStrings returns a deduplicated slice of strings
-func uniqueStrings(slice []string) []string {
-	seen := make(map[string]bool)
-	result := []string{}
-	for _, s := range slice {
-		if !seen[s] {
-			result = append(result, s)
-			seen[s] = true
-		}
-	}
-	return result
-}
-
 // contains checks if a string slice contains a string
 func contains(slice []string, str string) bool {
 	return slices.Contains(slice, str)
-}
-
-// helper to split space-separated words
-func splitWords(s string) []string {
-	words := []string{}
-	current := ""
-
-	for _, char := range s {
-		if char == ' ' {
-			if current != "" {
-				words = append(words, current)
-				current = ""
-			}
-		} else {
-			current += string(char)
-		}
-	}
-
-	if current != "" {
-		words = append(words, current)
-	}
-
-	return words
 }
