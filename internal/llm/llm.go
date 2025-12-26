@@ -40,6 +40,11 @@ func NewLLMWithConfig(ctx context.Context, config *Config) (LLM, error) {
 			MaxTokens:   config.TransformerMaxTokens,
 			Temperature: config.TransformerTemperature,
 		})
+	case ProviderOpenAI:
+		transformer = NewOpenAIGenerator(OpenAIConfig{
+			APIKey: config.TransformerAPIKey,
+			Model:  config.TransformerModel,
+		})
 	default:
 		return nil, fmt.Errorf("unsupported transformer provider: %s", config.TransformerProvider)
 	}
@@ -54,6 +59,11 @@ func NewLLMWithConfig(ctx context.Context, config *Config) (LLM, error) {
 			Model:       config.GeneratorModel,
 			MaxTokens:   config.GeneratorMaxTokens,
 			Temperature: config.GeneratorTemperature,
+		})
+	case ProviderOpenAI:
+		textGenerator = NewOpenAIGenerator(OpenAIConfig{
+			APIKey: config.GeneratorAPIKey,
+			Model:  config.GeneratorModel,
 		})
 	default:
 		return nil, fmt.Errorf("unsupported generator provider: %s", config.GeneratorProvider)

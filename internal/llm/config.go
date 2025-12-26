@@ -21,8 +21,13 @@ func loadConfig() (*Config, error) {
 		transformerProvider = ProviderAnthropic // default
 	}
 
-	// use API key from base config
-	transformerAPIKey := baseConfig.AnthropicKey
+	// use API key from base config based on provider
+	var transformerAPIKey string
+	if transformerProvider == ProviderOpenAI {
+		transformerAPIKey = baseConfig.OpenAIKey
+	} else {
+		transformerAPIKey = baseConfig.AnthropicKey
+	}
 
 	transformerModel := os.Getenv("TRANSFORMER_MODEL")
 	if transformerModel == "" {
@@ -35,8 +40,13 @@ func loadConfig() (*Config, error) {
 		generatorProvider = ProviderAnthropic // default
 	}
 
-	// use API key from base config
-	generatorAPIKey := baseConfig.AnthropicKey
+	// use API key from base config based on provider
+	var generatorAPIKey string
+	if generatorProvider == ProviderOpenAI {
+		generatorAPIKey = baseConfig.OpenAIKey
+	} else {
+		generatorAPIKey = baseConfig.AnthropicKey
+	}
 
 	generatorModel := os.Getenv("GENERATOR_MODEL")
 	if generatorModel == "" {
