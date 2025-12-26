@@ -19,6 +19,7 @@ const (
 func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]SearchResult, error) {
 	// identify unique pages
 	pageSet := make(map[string]bool)
+
 	for _, chunk := range chunks {
 		pageSet[chunk.PageName] = true
 	}
@@ -35,6 +36,7 @@ func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]S
 
 			// fetch PAGE_SUMMARY
 			summary, err := c.fetchSpecialChunk(ctx, pName, "PAGE_SUMMARY")
+
 			if err != nil {
 				log.Printf("failed to fetch PAGE_SUMMARY for %s: %v", pName, err)
 			} else if summary != nil {
@@ -45,6 +47,7 @@ func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]S
 
 			// fetch PAGE_EXAMPLES (if < 500 chars)
 			examples, err := c.fetchSpecialChunk(ctx, pName, "PAGE_EXAMPLES")
+
 			if err != nil {
 				log.Printf("failed to fetch PAGE_EXAMPLES for %s: %v", pName, err)
 			} else if examples != nil && len(examples.Content) < 500 {
@@ -178,6 +181,7 @@ func mergeAndRankDocs(primary, contextual []SearchResult, topK int) []SearchResu
 	if len(merged) > topK {
 		return merged[:topK]
 	}
+
 	return merged
 }
 

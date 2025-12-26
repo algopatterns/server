@@ -19,7 +19,7 @@ func ProcessRawExample(raw RawExample) (Example, error) {
 
 	description := raw.Description
 	if description == "" {
-		description = generateDescription(raw.Code, raw.Title, raw.Category, tags)
+		description = generateDescription(raw.Category, tags)
 	}
 
 	if raw.Author == "" {

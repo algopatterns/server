@@ -18,7 +18,7 @@ func extractTags(code string, category string, existingTags []string) []string {
 }
 
 // generate description creates a basic description if none exists
-func generateDescription(code string, title string, category string, tags []string) string {
+func generateDescription(category string, tags []string) string {
 	// build description from available metadata
 	parts := []string{}
 
@@ -30,6 +30,7 @@ func generateDescription(code string, title string, category string, tags []stri
 
 	// add key features based on tags
 	features := []string{}
+
 	for _, tag := range tags {
 		switch tag {
 		case "drums", "percussion":
@@ -48,6 +49,7 @@ func generateDescription(code string, title string, category string, tags []stri
 	if len(features) > 0 {
 		// deduplicate features
 		uniqueFeatures := make(map[string]bool)
+
 		for _, f := range features {
 			uniqueFeatures[f] = true
 		}
@@ -88,5 +90,3 @@ func LoadExamplesFromJSON(filePath string) ([]RawExample, error) {
 
 	return rawExamples, nil
 }
-
-// @todo: refactor this with accurate strudel syntax
