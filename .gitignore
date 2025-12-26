@@ -39,3 +39,6 @@ build/
 
 # Documentation (fetched dynamically, not committed)
 docs/strudel
+
+# Logs
+*.log

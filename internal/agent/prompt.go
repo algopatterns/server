@@ -124,6 +124,28 @@ func getInstructions() string {
 	- Keep code concise and focused on the user's request
 	- Use comments sparingly and only when the code logic isn't self-evident
 
+	!!! CRITICAL PATTERN RULES !!!
+
+	NEVER mix different sound types in the same stack() call.
+	Keep drums, synths, and melodies in SEPARATE patterns.
+
+	✓ CORRECT (separate patterns for different sound types):
+	$: sound("bd*4, hh*8").bank("RolandTR909")
+	$: note("c1 e1 g1").sound("sawtooth").lpf(400)
+
+	✓ ALSO CORRECT (using variables, then stacking):
+	let drums = sound("bd*4, hh*8").bank("RolandTR909")
+	let bass = note("c1 e1 g1").sound("sawtooth").lpf(400)
+	$: stack(drums, bass)
+
+	✗ WRONG (mixing drums and synths in same stack - will cause errors):
+	$: stack(
+	  sound("bd*4"),
+	  note("c1").sound("sawtooth")
+	).bank("RolandTR909")
+
+	Rule: One stack = one sound type. Drums with drums, synths with synths.
+
 	Response format:
 	- For code requests: Return ONLY the code, no markdown formatting, no explanations
 	- For questions: Provide a brief answer, then offer to generate code if relevant
