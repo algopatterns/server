@@ -43,6 +43,36 @@ note("c4 d4 e4 f4")               // Play with octave
 setcpm(120)                       // Cycles per minute
 ```
 
+### CPM ↔ CPS Conversion Cheatsheet
+
+**Formula:**
+```
+CPS = CPM ÷ 60
+CPM = CPS × 60
+BPM ≈ CPM × 4
+```
+
+**Conversion Table:**
+
+| CPS | CPM | Approx BPM | Feel |
+|-----|-----|-----------|------|
+| 0.25 | 15 | 60 | Very slow |
+| 0.33 | 20 | 80 | Slow |
+| 0.5 | 30 | 120 | Moderate |
+| 0.67 | 40 | 160 | Medium-fast |
+| 1.0 | 60 | 240 | Fast |
+| 1.5 | 90 | 360 | Very fast |
+| 1.83 | 110 | 440 | Very fast |
+| 2.0 | 120 | 480 | Extremely fast |
+
+**Examples:**
+```javascript
+setcpm(110)   // Afrobeat tempo
+setcps(1.83)  // Same as above
+setcpm(30)    // 120 BPM equivalent
+setcps(0.5)   // Same as above
+```
+
 ### Stop Everything
 ```javascript
 hush()                            // Stop all patterns
@@ -122,6 +152,41 @@ sound("bd - sd -")                // - = rest (alternative)
 | `[a b c]*2` | Play twice per cycle | `sound("[bd hh sd]*2")` |
 | `a@2` | Elongate (weight=2) | `sound("bd@2 hh")` |
 | `a!2` | Replicate (no speedup) | `sound("bd!2 hh")` |
+
+### Understanding Timing in Strudel
+
+**IMPORTANT: Strudel thinks in CYCLES, not beats!**
+
+**Cycles are the fundamental unit:**
+- 1 cycle = the full repeating pattern length
+- Timing is expressed as fractions of a cycle (0.0 to 1.0)
+- A 4-position pattern divides 1 cycle into 4 equal parts
+
+**Mini-notation position mapping:**
+
+In a pattern like `"bd ~ sd ~"` (4 positions):
+- **Position 1** = 0.0 cycles (start of cycle)
+- **Position 2** = 0.25 cycles (quarter through)
+- **Position 3** = 0.5 cycles (halfway through)
+- **Position 4** = 0.75 cycles (three-quarters through)
+
+**Subdivisions with brackets:**
+- `[bd ~]` in position 3 = plays at 0.5 cycles (start of position 3)
+- `[~ bd]` in position 3 = plays at 0.625 cycles (halfway through position 3)
+- `[~ ~ bd]` in position 3 = plays at 0.66 cycles (two-thirds through position 3)
+
+**Examples of precise timing:**
+```javascript
+sound("bd ~ [~ bd] ~")        // Kick at 0.0 and 0.625 (3.5 position)
+sound("bd [bd ~] sd ~")        // Kick at 0.0 and 0.25 (2.0 position)
+sound("bd ~ ~ [~ ~ bd]")       // Kick at 0.0 and 0.916 (4.66 position)
+```
+
+**When describing timing:**
+- ✅ Use "position" (1st, 2nd, 3rd, 4th) for clarity
+- ✅ Use cycle fractions (0.5, 0.625, 0.75) for precision
+- ✅ Use mini-notation directly for exact patterns
+- ❌ Avoid "beat" language - it's ambiguous in Strudel
 
 ### Nested Sequences (Sub-Sequences)
 ```javascript
