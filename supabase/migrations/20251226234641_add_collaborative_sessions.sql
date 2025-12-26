@@ -38,7 +38,7 @@ CREATE INDEX idx_participants_user ON session_participants(user_id);
 CREATE TABLE invite_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-  token TEXT UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex'),
+  token TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('co-author', 'viewer')),
   max_uses INTEGER,  -- NULL = unlimited uses
   uses_count INTEGER DEFAULT 0,
