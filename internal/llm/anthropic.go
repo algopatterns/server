@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -29,6 +31,11 @@ var anthropicHTTPClient = &http.Client{
 		TLSHandshakeTimeout: 10 * time.Second, // TLS handshake timeout
 	},
 }
+
+// rate limiter for Anthropic API calls
+// limits to 50 requests/second with burst capacity of 10
+// prevents hitting Anthropic's rate limits and potential API key throttling
+var anthropicRateLimiter = rate.NewLimiter(50, 10)
 
 type transformRequest struct {
 	Model       string    `json:"model"`
@@ -112,6 +119,11 @@ func (t *AnthropicTransformer) TransformQuery(ctx context.Context, userQuery str
 	req.Header.Set("x-api-key", t.config.APIKey)
 	req.Header.Set("anthropic-version", anthropicVersion)
 
+	// apply rate limiting before making the request
+	if err := anthropicRateLimiter.Wait(ctx); err != nil {
+		return "", fmt.Errorf("rate limiter error: %w", err)
+	}
+
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
@@ -187,6 +199,11 @@ func (t *AnthropicTransformer) GenerateText(ctx context.Context, req TextGenerat
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("x-api-key", t.config.APIKey)
 	httpReq.Header.Set("anthropic-version", anthropicVersion)
+
+	// apply rate limiting before making the request
+	if err := anthropicRateLimiter.Wait(ctx); err != nil {
+		return "", fmt.Errorf("rate limiter error: %w", err)
+	}
 
 	resp, err := t.httpClient.Do(httpReq)
 	if err != nil {

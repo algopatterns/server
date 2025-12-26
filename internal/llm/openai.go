@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -27,6 +29,11 @@ var openaiHTTPClient = &http.Client{
 		TLSHandshakeTimeout: 10 * time.Second,
 	},
 }
+
+// rate limiter for OpenAI API calls
+// limits to 50 requests/second with burst capacity of 10
+// prevents hitting OpenAI's rate limits (typically 3,500 requests/min for embeddings)
+var openaiRateLimiter = rate.NewLimiter(50, 10)
 
 type embeddingRequest struct {
 	Input    []string `json:"input"`
@@ -105,6 +112,11 @@ func (e *OpenAIEmbedder) GenerateEmbeddings(ctx context.Context, texts []string)
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", e.config.APIKey))
+
+	// apply rate limiting before making the request
+	if err := openaiRateLimiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("rate limiter error: %w", err)
+	}
 
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
