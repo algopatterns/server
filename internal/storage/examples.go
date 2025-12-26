@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/algorave/server/internal/examples"
 	"github.com/jackc/pgx/v5"
@@ -33,7 +34,13 @@ func (c *Client) InsertExamplesBatch(ctx context.Context, examples []examples.Ex
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+
+	// defer rollback - will be no-op if commit succeeds
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("failed to rollback transaction: %v", err)
+		}
+	}()
 
 	batch := &pgx.Batch{}
 	query := `

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/algorave/server/internal/chunker"
 	"github.com/jackc/pgx/v5"
@@ -54,7 +55,12 @@ func (c *Client) InsertChunksBatch(ctx context.Context, chunks []chunker.Chunk, 
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer tx.Rollback(ctx)
+	// defer rollback - will be no-op if commit succeeds
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("failed to rollback transaction: %v", err)
+		}
+	}()
 
 	batch := &pgx.Batch{}
 	query := `
@@ -75,7 +81,7 @@ func (c *Client) InsertChunksBatch(ctx context.Context, chunks []chunker.Chunk, 
 
 	br := tx.SendBatch(ctx, batch)
 
-	for i := 0; i < len(chunks); i++ {
+	for i := range len(chunks) {
 		_, err := br.Exec()
 		if err != nil {
 			br.Close()
