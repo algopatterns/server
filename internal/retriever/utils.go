@@ -210,6 +210,104 @@ func mergeAndRankExamples(primary, contextual []ExampleResult, topK int) []Examp
 	return merged
 }
 
+// mergeVectorAndBM25Docs combines vector and BM25 search results with weighted scoring
+// Vector results get 70% weight, BM25 results get 30% weight (following Cursor's approach)
+func mergeVectorAndBM25Docs(vectorResults, bm25Results []SearchResult, topK int) []SearchResult {
+	const (
+		vectorWeight = 0.7
+		bm25Weight   = 0.3
+	)
+
+	// create a map to track combined scores by chunk ID
+	scoreMap := make(map[string]float32)
+	chunkMap := make(map[string]SearchResult)
+
+	// add vector results with 70% weight
+	for _, chunk := range vectorResults {
+		scoreMap[chunk.ID] = chunk.Similarity * vectorWeight
+		chunkMap[chunk.ID] = chunk
+	}
+
+	// add BM25 results with 30% weight, combining scores if already present
+	for _, chunk := range bm25Results {
+		weightedScore := chunk.Similarity * bm25Weight
+		if existingScore, exists := scoreMap[chunk.ID]; exists {
+			scoreMap[chunk.ID] = existingScore + weightedScore
+		} else {
+			scoreMap[chunk.ID] = weightedScore
+			chunkMap[chunk.ID] = chunk
+		}
+	}
+
+	// build result list with combined scores
+	merged := make([]SearchResult, 0, len(chunkMap))
+	for id, chunk := range chunkMap {
+		chunk.Similarity = scoreMap[id]
+		merged = append(merged, chunk)
+	}
+
+	// sort by combined score (higher is better)
+	sort.Slice(merged, func(i, j int) bool {
+		return merged[i].Similarity > merged[j].Similarity
+	})
+
+	// return top K
+	if len(merged) > topK {
+		return merged[:topK]
+	}
+
+	return merged
+}
+
+// mergeVectorAndBM25Examples combines vector and BM25 search results with weighted scoring
+// Vector results get 70% weight, BM25 results get 30% weight (following Cursor's approach)
+func mergeVectorAndBM25Examples(vectorResults, bm25Results []ExampleResult, topK int) []ExampleResult {
+	const (
+		vectorWeight = 0.7
+		bm25Weight   = 0.3
+	)
+
+	// create a map to track combined scores by example ID
+	scoreMap := make(map[string]float32)
+	exampleMap := make(map[string]ExampleResult)
+
+	// add vector results with 70% weight
+	for _, example := range vectorResults {
+		scoreMap[example.ID] = example.Similarity * vectorWeight
+		exampleMap[example.ID] = example
+	}
+
+	// add BM25 results with 30% weight, combining scores if already present
+	for _, example := range bm25Results {
+		weightedScore := example.Similarity * bm25Weight
+		if existingScore, exists := scoreMap[example.ID]; exists {
+			scoreMap[example.ID] = existingScore + weightedScore
+		} else {
+			scoreMap[example.ID] = weightedScore
+			exampleMap[example.ID] = example
+		}
+	}
+
+	// build result list with combined scores
+	merged := make([]ExampleResult, 0, len(exampleMap))
+	for id, example := range exampleMap {
+		example.Similarity = scoreMap[id]
+		merged = append(merged, example)
+	}
+
+	// sort by combined score (higher is better)
+	sort.Slice(merged, func(i, j int) bool {
+		return merged[i].Similarity > merged[j].Similarity
+	})
+
+	// return top K
+	if len(merged) > topK {
+		return merged[:topK]
+	}
+
+	return merged
+}
+
 // contains checks if a string slice contains a string
 func contains(slice []string, str string) bool {
 	return slices.Contains(slice, str)

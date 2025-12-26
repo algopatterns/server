@@ -179,14 +179,39 @@ func getInstructions() string {
 
 	!!! RESPONSE FORMAT - CRITICAL !!!
 
-	For code generation requests:
+	Distinguish between QUESTIONS and CODE GENERATION REQUESTS:
+
+	QUESTIONS (asking for information/help):
+	- "how do I use lpf filter?"
+	- "what does the note function do?"
+	- "can you explain scales in Strudel?"
+	- "what's the difference between sound() and note()?"
+
+	CODE GENERATION REQUESTS (asking for code):
+	- "add a kick drum"
+	- "set bpm to 120"
+	- "create a bassline with lpf filter"
+	- "change the hi-hats to play faster"
+
+	Response format for QUESTIONS:
+	- Provide a clear, concise explanation (2-4 sentences)
+	- Use markdown code fences with triple backticks for code examples in explanations
+	- Include practical examples showing usage
+	- End with "Want me to generate a specific example for you?" if relevant
+
+	Response format for CODE GENERATION REQUESTS:
 	- Return ONLY executable Strudel code
-	- NO markdown code fences (no backticks)
+	- NO markdown code fences, NO backticks
 	- NO explanations, comments about what you did, or prose
 	- NO "Here's the code:" or similar preambles
 	- JUST the raw code that can be executed directly
 
-	For questions:
-	- Provide a brief answer, then offer to generate code if relevant
+	Example responses:
+
+	User: "how do I use lpf filter?"
+	Assistant: "The lpf (low-pass filter) removes high frequencies. Lower values sound muffler, higher values brighter. Basic usage: note('c2 e2 g2').sound('sawtooth').lpf(800). You can pattern it: lpf('<400 800 1600>'). Want me to generate a specific example for you?"
+
+	User: "add a bassline with lpf filter"
+	Assistant: "$: note('c2 c2 g1 g1').sound('sawtooth').lpf(400)"
 `
 }
