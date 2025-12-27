@@ -1,4 +1,4 @@
-package handlers
+package websocket
 
 import (
 	"context"
@@ -6,14 +6,56 @@ import (
 
 	"github.com/algorave/server/algorave/sessions"
 	"github.com/algorave/server/internal/agent"
-	ws "github.com/algorave/server/internal/websocket"
 )
 
-// handles code generation request messages
-func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) ws.MessageHandler {
-	return func(hub *ws.Hub, client *ws.Client, msg *ws.Message) error {
+// CodeUpdateHandler handles code update messages
+func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
+	return func(hub *Hub, client *Client, msg *Message) error {
+		// check if client has write permissions
+		if !client.CanWrite() {
+			client.SendError("FORBIDDEN", "You don't have permission to edit code", "")
+			return ErrReadOnly
+		}
+
 		// parse payload
-		var payload ws.AgentRequestPayload
+		var payload CodeUpdatePayload
+		if err := msg.UnmarshalPayload(&payload); err != nil {
+			client.SendError("INVALID_PAYLOAD", "Failed to parse code update", err.Error())
+			return err
+		}
+
+		// update session code in database
+		ctx := context.Background()
+		if err := sessionRepo.UpdateSessionCode(ctx, client.SessionID, payload.Code); err != nil {
+			log.Printf("Failed to update session code: %v", err)
+			client.SendError("DATABASE_ERROR", "Failed to save code update", err.Error())
+			return err
+		}
+
+		// add display name to payload
+		payload.DisplayName = client.DisplayName
+
+		// create new message with updated payload
+		broadcastMsg, err := NewMessage(TypeCodeUpdate, client.SessionID, client.UserID, payload)
+		if err != nil {
+			log.Printf("Failed to create broadcast message: %v", err)
+			return err
+		}
+
+		// broadcast to all other clients in the session
+		hub.BroadcastToSession(client.SessionID, broadcastMsg, client.ID)
+
+		log.Printf("Code updated by %s in session %s", client.DisplayName, client.SessionID)
+
+		return nil
+	}
+}
+
+// GenerateHandler handles code generation request messages
+func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) MessageHandler {
+	return func(hub *Hub, client *Client, msg *Message) error {
+		// parse payload
+		var payload AgentRequestPayload
 		if err := msg.UnmarshalPayload(&payload); err != nil {
 			client.SendError("INVALID_PAYLOAD", "Failed to parse generation request", err.Error())
 			return err
@@ -67,7 +109,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		}
 
 		// create response payload
-		responsePayload := ws.AgentResponsePayload{
+		responsePayload := AgentResponsePayload{
 			Code:                response.Code,
 			DocsRetrieved:       response.DocsRetrieved,
 			ExamplesRetrieved:   response.ExamplesRetrieved,
@@ -77,7 +119,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		}
 
 		// create response message
-		responseMsg, err := ws.NewMessage(ws.TypeAgentResponse, client.SessionID, client.UserID, responsePayload)
+		responseMsg, err := NewMessage(TypeAgentResponse, client.SessionID, client.UserID, responsePayload)
 		if err != nil {
 			log.Printf("Failed to create response message: %v", err)
 			return err

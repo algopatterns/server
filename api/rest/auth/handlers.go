@@ -117,6 +117,35 @@ func GetCurrentUserHandler(userRepo *users.Repository) gin.HandlerFunc {
 	}
 }
 
+// updates the current user's profile
+func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := auth.GetUserID(c)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			return
+		}
+
+		var req struct {
+			Name      string `json:"name" binding:"required"`
+			AvatarURL string `json:"avatar_url"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+
+		user, err := userRepo.UpdateProfile(c.Request.Context(), userID, req.Name, req.AvatarURL)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update profile"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"user": user})
+	}
+}
+
 // handles logout (client-side token deletion mainly)
 func LogoutHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {

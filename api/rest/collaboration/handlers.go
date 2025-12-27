@@ -1,6 +1,7 @@
 package collaboration
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -369,5 +370,261 @@ func JoinSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 			Role:        token.Role,
 			DisplayName: displayName,
 		})
+	}
+}
+
+// leaves a session
+func LeaveSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+
+		// get authenticated user
+		userID, exists := auth.GetUserID(c)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "Authentication required"})
+			return
+		}
+
+		// get participant record
+		participant, err := sessionRepo.GetAuthenticatedParticipant(c.Request.Context(), sessionID, userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not_participant", "message": "You are not a participant in this session"})
+			return
+		}
+
+		// mark as left
+		if err := sessionRepo.MarkAuthenticatedParticipantLeft(c.Request.Context(), participant.ID); err != nil {
+			log.Printf("Failed to mark participant as left: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to leave session"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Successfully left session"})
+	}
+}
+
+// gets session conversation history
+func GetSessionMessagesHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+
+		// get limit from query parameter (default 100, max 1000)
+		limit := 100
+		if limitStr := c.Query("limit"); limitStr != "" {
+			var parsedLimit int
+			if _, err := fmt.Sscanf(limitStr, "%d", &parsedLimit); err == nil {
+				if parsedLimit > 0 && parsedLimit <= 1000 {
+					limit = parsedLimit
+				}
+			}
+		}
+
+		// get messages
+		messages, err := sessionRepo.GetMessages(c.Request.Context(), sessionID, limit)
+		if err != nil {
+			log.Printf("Failed to get messages: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to retrieve messages"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"messages": messages})
+	}
+}
+
+// removes a participant from a session (kick)
+func RemoveParticipantHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+		participantID := c.Param("participant_id")
+
+		// get authenticated user
+		userID, exists := auth.GetUserID(c)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "Authentication required"})
+			return
+		}
+
+		// get session to verify host
+		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "Session not found"})
+			return
+		}
+
+		// only host can remove participants
+		if session.HostUserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "Only the host can remove participants"})
+			return
+		}
+
+		// get participant to ensure they're in this session
+		participant, err := sessionRepo.GetParticipantByID(c.Request.Context(), participantID)
+		if err != nil || participant.SessionID != sessionID {
+			c.JSON(http.StatusNotFound, gin.H{"error": "participant_not_found", "message": "Participant not found in this session"})
+			return
+		}
+
+		// can't remove yourself
+		if participant.UserID != nil && *participant.UserID == userID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_operation", "message": "Cannot remove yourself. Use leave endpoint instead"})
+			return
+		}
+
+		// remove participant
+		if err := sessionRepo.RemoveParticipant(c.Request.Context(), participantID); err != nil {
+			log.Printf("Failed to remove participant: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to remove participant"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Participant removed successfully"})
+	}
+}
+
+// updates a participant's role
+func UpdateParticipantRoleHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+		participantID := c.Param("participant_id")
+
+		// get authenticated user
+		userID, exists := auth.GetUserID(c)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "Authentication required"})
+			return
+		}
+
+		// get session to verify host
+		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "Session not found"})
+			return
+		}
+
+		// only host can change roles
+		if session.HostUserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "Only the host can change participant roles"})
+			return
+		}
+
+		// parse request
+		var req struct {
+			Role string `json:"role" binding:"required,oneof=co-author viewer"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			return
+		}
+
+		// get participant to ensure they're in this session
+		participant, err := sessionRepo.GetParticipantByID(c.Request.Context(), participantID)
+		if err != nil || participant.SessionID != sessionID {
+			c.JSON(http.StatusNotFound, gin.H{"error": "participant_not_found", "message": "Participant not found in this session"})
+			return
+		}
+
+		// can't change host role
+		if participant.Role == "host" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_operation", "message": "Cannot change host role"})
+			return
+		}
+
+		// update role
+		if err := sessionRepo.UpdateParticipantRole(c.Request.Context(), participantID, req.Role); err != nil {
+			log.Printf("Failed to update participant role: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to update role"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Role updated successfully", "role": req.Role})
+	}
+}
+
+// lists all invite tokens for a session
+func ListInviteTokensHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+
+		// get authenticated user
+		userID, exists := auth.GetUserID(c)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "Authentication required"})
+			return
+		}
+
+		// get session to verify host
+		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "Session not found"})
+			return
+		}
+
+		// only host can view invite tokens
+		if session.HostUserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "Only the host can view invite tokens"})
+			return
+		}
+
+		// get invite tokens
+		tokens, err := sessionRepo.ListInviteTokens(c.Request.Context(), sessionID)
+		if err != nil {
+			log.Printf("Failed to list invite tokens: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to retrieve invite tokens"})
+			return
+		}
+
+		// convert to response format
+		responses := make([]InviteTokenResponse, 0, len(tokens))
+		for _, t := range tokens {
+			responses = append(responses, InviteTokenResponse{
+				ID:        t.ID,
+				SessionID: t.SessionID,
+				Token:     t.Token,
+				Role:      t.Role,
+				MaxUses:   t.MaxUses,
+				UsesCount: t.UsesCount,
+				ExpiresAt: t.ExpiresAt,
+				CreatedAt: t.CreatedAt,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"tokens": responses})
+	}
+}
+
+// revokes an invite token
+func RevokeInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+		tokenID := c.Param("token_id")
+
+		// get authenticated user
+		userID, exists := auth.GetUserID(c)
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "Authentication required"})
+			return
+		}
+
+		// get session to verify host
+		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "Session not found"})
+			return
+		}
+
+		// only host can revoke invite tokens
+		if session.HostUserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "Only the host can revoke invite tokens"})
+			return
+		}
+
+		// revoke token
+		if err := sessionRepo.RevokeInviteToken(c.Request.Context(), tokenID); err != nil {
+			log.Printf("Failed to revoke invite token: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to revoke invite token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Invite token revoked successfully"})
 	}
 }

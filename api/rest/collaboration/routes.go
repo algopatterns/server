@@ -15,12 +15,20 @@ func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository) {
 	router.GET("/sessions/:id", GetSessionHandler(sessionRepo))
 	router.PUT("/sessions/:id", auth.AuthMiddleware(), UpdateSessionCodeHandler(sessionRepo))
 	router.DELETE("/sessions/:id", auth.AuthMiddleware(), EndSessionHandler(sessionRepo))
+	router.POST("/sessions/:id/leave", auth.AuthMiddleware(), LeaveSessionHandler(sessionRepo))
+
+	// Session messages
+	router.GET("/sessions/:id/messages", GetSessionMessagesHandler(sessionRepo))
 
 	// Invite tokens (host only)
 	router.POST("/sessions/:id/invite", auth.AuthMiddleware(), CreateInviteTokenHandler(sessionRepo))
+	router.GET("/sessions/:id/invite", auth.AuthMiddleware(), ListInviteTokensHandler(sessionRepo))
+	router.DELETE("/sessions/:id/invite/:token_id", auth.AuthMiddleware(), RevokeInviteTokenHandler(sessionRepo))
 
 	// Participants
 	router.GET("/sessions/:id/participants", ListParticipantsHandler(sessionRepo))
+	router.DELETE("/sessions/:id/participants/:participant_id", auth.AuthMiddleware(), RemoveParticipantHandler(sessionRepo))
+	router.PATCH("/sessions/:id/participants/:participant_id", auth.AuthMiddleware(), UpdateParticipantRoleHandler(sessionRepo))
 
 	// Join session (optional auth)
 	router.POST("/sessions/join", auth.OptionalAuthMiddleware(), JoinSessionHandler(sessionRepo))

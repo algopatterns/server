@@ -14,5 +14,6 @@ func RegisterRoutes(router *gin.RouterGroup, userRepo *users.Repository) {
 		authGroup.GET("/:provider/callback", CallbackHandler(userRepo))
 		authGroup.POST("/logout", LogoutHandler())
 		authGroup.GET("/me", auth.AuthMiddleware(), GetCurrentUserHandler(userRepo))
+		authGroup.PUT("/me", auth.AuthMiddleware(), UpdateProfileHandler(userRepo))
 	}
 }
