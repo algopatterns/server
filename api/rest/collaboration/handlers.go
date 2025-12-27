@@ -14,7 +14,6 @@ import (
 // creates a new collaborative session
 func CreateSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "Authentication required"})
@@ -73,6 +72,7 @@ func GetSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 
 		// convert to response format
 		participantResponses := make([]ParticipantResponse, 0, len(participants))
+
 		for _, p := range participants {
 			participantResponses = append(participantResponses, ParticipantResponse{
 				ID:          p.ID,
@@ -99,10 +99,9 @@ func GetSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	}
 }
 
-// lists all sessions for the authenticated user
+// lists all sessions for the currently authenticated user
 func ListUserSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 
 		if !exists {
@@ -142,7 +141,7 @@ func ListUserSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	}
 }
 
-// updates the code in a session
+// updates the strudel code in a session
 func UpdateSessionCodeHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("id")
@@ -403,12 +402,11 @@ func LeaveSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	}
 }
 
-// gets session conversation history
+// gets a session's conversation history
 func GetSessionMessagesHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("id")
 
-		// get limit from query parameter (default 100, max 1000)
 		limit := 100
 		if limitStr := c.Query("limit"); limitStr != "" {
 			var parsedLimit int

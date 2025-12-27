@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CreateStrudelHandler creates a new strudel for the authenticated user
+// creates a new strudel for the authenticated user
 func CreateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -34,7 +34,7 @@ func CreateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// ListStrudelsHandler lists all strudels for the authenticated user
+// lists all strudels for the authenticated user
 func ListStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -53,7 +53,7 @@ func ListStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// GetStrudelHandler gets a single strudel by ID
+// gets a single strudel by ID
 func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -73,7 +73,7 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// UpdateStrudelHandler updates a strudel
+// updates a strudel
 func UpdateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -99,7 +99,7 @@ func UpdateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// DeleteStrudelHandler deletes a strudel
+// deletes a strudel
 func DeleteStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -119,10 +119,11 @@ func DeleteStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// ListPublicStrudelsHandler lists public strudels (no auth required)
+// lists public strudels (no auth required)
 func ListPublicStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		limit := 50 // default limit
+		limit := 50
+
 		if l, ok := c.GetQuery("limit"); ok {
 			if parsedLimit, err := parseInt(l); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
 				limit = parsedLimit

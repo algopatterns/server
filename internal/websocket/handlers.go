@@ -8,9 +8,15 @@ import (
 	"github.com/algorave/server/internal/agent"
 )
 
-// CodeUpdateHandler handles code update messages
+// handles code update messages
 func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {
+		// check rate limit
+		if !client.checkCodeUpdateRateLimit() {
+			client.SendError("RATE_LIMIT_EXCEEDED", "Too many code updates. Maximum 10 per second.", "")
+			return ErrRateLimitExceeded
+		}
+
 		// check if client has write permissions
 		if !client.CanWrite() {
 			client.SendError("FORBIDDEN", "You don't have permission to edit code", "")
@@ -20,8 +26,15 @@ func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 		// parse payload
 		var payload CodeUpdatePayload
 		if err := msg.UnmarshalPayload(&payload); err != nil {
-			client.SendError("INVALID_PAYLOAD", "Failed to parse code update", err.Error())
+			client.SendError("INVALID_PAYLOAD", "failed to parse code update", err.Error())
 			return err
+		}
+
+		// validate code size
+		codeSize := len([]byte(payload.Code))
+		if codeSize > maxCodeSize {
+			client.SendError("CODE_TOO_LARGE", "Code exceeds maximum size. Maximum 100 KB allowed.", "")
+			return ErrCodeTooLarge
 		}
 
 		// update session code in database
@@ -38,26 +51,31 @@ func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 		// create new message with updated payload
 		broadcastMsg, err := NewMessage(TypeCodeUpdate, client.SessionID, client.UserID, payload)
 		if err != nil {
-			log.Printf("Failed to create broadcast message: %v", err)
+			log.Printf("failed to create broadcast message: %v", err)
 			return err
 		}
 
 		// broadcast to all other clients in the session
 		hub.BroadcastToSession(client.SessionID, broadcastMsg, client.ID)
-
-		log.Printf("Code updated by %s in session %s", client.DisplayName, client.SessionID)
+		log.Printf("code updated by %s in session %s", client.DisplayName, client.SessionID)
 
 		return nil
 	}
 }
 
-// GenerateHandler handles code generation request messages
+// handles code generation request messages
 func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {
+		// check rate limit
+		if !client.checkAgentRequestRateLimit() {
+			client.SendError("RATE_LIMIT_EXCEEDED", "Too many agent requests. Maximum 5 per minute.", "")
+			return ErrRateLimitExceeded
+		}
+
 		// parse payload
 		var payload AgentRequestPayload
 		if err := msg.UnmarshalPayload(&payload); err != nil {
-			client.SendError("INVALID_PAYLOAD", "Failed to parse generation request", err.Error())
+			client.SendError("INVALID_PAYLOAD", "failed to parse generation request", err.Error())
 			return err
 		}
 
@@ -81,7 +99,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		ctx := context.Background()
 		response, err := agentClient.Generate(ctx, agentReq)
 		if err != nil {
-			log.Printf("Failed to generate code: %v", err)
+			log.Printf("failed to generate code: %v", err)
 			client.SendError("GENERATION_ERROR", "Failed to generate code", err.Error())
 			return err
 		}
@@ -90,21 +108,21 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		if payload.UserQuery != "" {
 			_, err := sessionRepo.AddMessage(ctx, client.SessionID, client.UserID, "user", payload.UserQuery)
 			if err != nil {
-				log.Printf("Failed to save user message: %v", err)
+				log.Printf("failed to save user message: %v", err)
 			}
 		}
 
 		if response.Code != "" {
 			_, err := sessionRepo.AddMessage(ctx, client.SessionID, "", "assistant", response.Code)
 			if err != nil {
-				log.Printf("Failed to save assistant message: %v", err)
+				log.Printf("failed to save assistant message: %v", err)
 			}
 		}
 
 		// update session code if generation was successful
 		if response.IsActionable && response.Code != "" {
 			if err := sessionRepo.UpdateSessionCode(ctx, client.SessionID, response.Code); err != nil {
-				log.Printf("Failed to update session code: %v", err)
+				log.Printf("failed to update session code: %v", err)
 			}
 		}
 
@@ -121,7 +139,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		// create response message
 		responseMsg, err := NewMessage(TypeAgentResponse, client.SessionID, client.UserID, responsePayload)
 		if err != nil {
-			log.Printf("Failed to create response message: %v", err)
+			log.Printf("failed to create response message: %v", err)
 			return err
 		}
 
@@ -130,10 +148,10 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 
 		// update last activity
 		if err := sessionRepo.UpdateLastActivity(ctx, client.SessionID); err != nil {
-			log.Printf("Failed to update last activity: %v", err)
+			log.Printf("failed to update last activity: %v", err)
 		}
 
-		log.Printf("Code generated for session %s by %s", client.SessionID, client.DisplayName)
+		log.Printf("code generated for session %s by %s", client.SessionID, client.DisplayName)
 
 		return nil
 	}

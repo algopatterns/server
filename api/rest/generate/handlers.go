@@ -42,7 +42,6 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 			strudel, err := strudelRepo.Get(c.Request.Context(), req.StrudelID, userID.(string))
 			if err != nil {
 				log.Printf("failed to load strudel %s: %v", req.StrudelID, err)
-				// continue with conversation history from request
 			} else {
 				// use strudel's conversation history
 				conversationHistory = strudel.ConversationHistory

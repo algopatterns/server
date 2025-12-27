@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -34,18 +34,16 @@ func BeginAuthHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		provider := c.Param("provider")
 
-		// Validate provider
 		if !isValidProvider(provider) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid provider"})
 			return
 		}
 
-		// Set provider in query for gothic
+		// set provider in query for gothic
 		q := c.Request.URL.Query()
 		q.Add("provider", provider)
 		c.Request.URL.RawQuery = q.Encode()
 
-		// Start OAuth flow
 		gothic.BeginAuthHandler(c.Writer, c.Request)
 	}
 }
@@ -55,7 +53,6 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		provider := c.Param("provider")
 
-		// set provider in query for gothic
 		q := c.Request.URL.Query()
 		q.Add("provider", provider)
 		c.Request.URL.RawQuery = q.Encode()
@@ -63,11 +60,11 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 		// complete OAuth flow
 		gothUser, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("authentication failed: %v", err)})
+			log.Printf("OAuth authentication failed for provider %s: %v", provider, err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication failed"})
 			return
 		}
 
-		// find or create user in database
 		user, err := userRepo.FindOrCreateByProvider(
 			c.Request.Context(),
 			gothUser.Provider,

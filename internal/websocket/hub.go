@@ -5,58 +5,69 @@ import (
 	"sync"
 )
 
-// Hub maintains the set of active clients and broadcasts messages to sessions
+const (
+	maxConnectionsPerUser = 5
+	maxConnectionsPerIP   = 10
+)
+
+// maintains the set of active clients and broadcasts messages to sessions
 type Hub struct {
-	// Registered clients by session ID and client ID
-	// Structure: map[sessionID]map[clientID]*Client
+	// registered clients by session ID and client ID
 	sessions map[string]map[string]*Client
 
-	// Register requests from clients
+	// register requests from clients
 	Register chan *Client
 
-	// Unregister requests from clients
+	// unregister requests from clients
 	Unregister chan *Client
 
-	// Broadcast messages to all clients in a session
+	// broadcast messages to all clients in a session
 	Broadcast chan *Message
 
-	// Mutex for thread-safe access to sessions
+	// mutex for thread-safe access to sessions
 	mu sync.RWMutex
 
-	// Message handlers for different message types
+	// message handlers for different message types
 	handlers map[string]MessageHandler
 
-	// Flag indicating if hub is running
+	// flag indicating if hub is running
 	running bool
 
-	// Channel to signal shutdown
+	// channel to signal shutdown
 	shutdown chan struct{}
+
+	// connection tracking: user ID -> count of connections
+	userConnections map[string]int
+
+	// connection tracking: IP address -> count of connections
+	ipConnections map[string]int
 }
 
-// MessageHandler is a function that processes a specific message type
+// processes a specific message type
 type MessageHandler func(hub *Hub, client *Client, msg *Message) error
 
-// NewHub creates a new Hub instance
 func NewHub() *Hub {
 	return &Hub{
-		sessions:   make(map[string]map[string]*Client),
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
-		Broadcast:  make(chan *Message, 256),
-		handlers:   make(map[string]MessageHandler),
-		running:    false,
-		shutdown:   make(chan struct{}),
+		sessions:        make(map[string]map[string]*Client),
+		Register:        make(chan *Client),
+		Unregister:      make(chan *Client),
+		Broadcast:       make(chan *Message, 256),
+		handlers:        make(map[string]MessageHandler),
+		running:         false,
+		shutdown:        make(chan struct{}),
+		userConnections: make(map[string]int),
+		ipConnections:   make(map[string]int),
 	}
 }
 
-// RegisterHandler registers a handler for a specific message type
+// registers a handler for a specific message type
 func (h *Hub) RegisterHandler(messageType string, handler MessageHandler) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.handlers[messageType] = handler
 }
 
-// Run starts the hub's main loop
+// starts the hub's main loop
 func (h *Hub) Run() {
 	h.running = true
 	defer func() {
@@ -86,18 +97,19 @@ func (h *Hub) registerClient(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Create session map if it doesn't exist
 	if h.sessions[client.SessionID] == nil {
 		h.sessions[client.SessionID] = make(map[string]*Client)
 	}
 
-	// Add client to session
 	h.sessions[client.SessionID][client.ID] = client
+
+	if client.UserID != "" {
+		h.userConnections[client.UserID]++
+	}
 
 	log.Printf("Client registered: %s (session: %s, role: %s, name: %s)",
 		client.ID, client.SessionID, client.Role, client.DisplayName)
 
-	// Notify other clients in the session
 	userJoinedMsg, err := NewMessage(TypeUserJoined, client.SessionID, client.UserID, UserJoinedPayload{
 		UserID:      client.UserID,
 		DisplayName: client.DisplayName,
@@ -108,7 +120,7 @@ func (h *Hub) registerClient(client *Client) {
 	}
 }
 
-// unregisterClient removes a client from the hub
+// removes a client from the hub
 func (h *Hub) unregisterClient(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -122,14 +134,23 @@ func (h *Hub) unregisterClient(client *Client) {
 		delete(sessionClients, client.ID)
 		client.Close()
 
-		log.Printf("Client unregistered: %s (session: %s)", client.ID, client.SessionID)
+		if client.UserID != "" {
+			h.userConnections[client.UserID]--
+			if h.userConnections[client.UserID] <= 0 {
+				delete(h.userConnections, client.UserID)
+			}
+		}
 
-		// Clean up empty sessions
+		if client.IPAddress != "" {
+			h.UntrackIPConnection(client.IPAddress)
+		}
+
+		log.Printf("client unregistered: %s (session: %s)", client.ID, client.SessionID)
+
 		if len(sessionClients) == 0 {
 			delete(h.sessions, client.SessionID)
-			log.Printf("Session %s has no more clients, removed", client.SessionID)
+			log.Printf("session %s has no more clients, removed", client.SessionID)
 		} else {
-			// Notify other clients in the session
 			userLeftMsg, err := NewMessage(TypeUserLeft, client.SessionID, client.UserID, UserLeftPayload{
 				UserID:      client.UserID,
 				DisplayName: client.DisplayName,
@@ -141,51 +162,47 @@ func (h *Hub) unregisterClient(client *Client) {
 	}
 }
 
-// handleMessage processes an incoming message
+// processes an incoming message
 func (h *Hub) handleMessage(msg *Message) {
-	// Find the sender client by ClientID
 	h.mu.RLock()
+
 	sessionClients, exists := h.sessions[msg.SessionID]
 	if !exists {
 		h.mu.RUnlock()
-		log.Printf("Session not found for message: %s", msg.SessionID)
+		log.Printf("session not found for message: %s", msg.SessionID)
 		return
 	}
 
-	// Look up sender by ClientID (not UserID, to support multiple connections)
 	sender, exists := sessionClients[msg.ClientID]
 	h.mu.RUnlock()
 
 	if !exists {
-		log.Printf("Sender client %s not found for message in session %s", msg.ClientID, msg.SessionID)
+		log.Printf("sender client %s not found for message in session %s", msg.ClientID, msg.SessionID)
 		return
 	}
 
-	// Check if there's a registered handler for this message type
 	h.mu.RLock()
 	handler, exists := h.handlers[msg.Type]
 	h.mu.RUnlock()
 
 	if exists {
-		// Call the handler
 		if err := handler(h, sender, msg); err != nil {
 			log.Printf("Handler error for message type %s: %v", msg.Type, err)
 			sender.SendError("HANDLER_ERROR", "Failed to process message", err.Error())
 		}
 	} else {
-		// Default behavior: broadcast to all clients in the session
 		h.BroadcastToSession(msg.SessionID, msg, sender.ID)
 	}
 }
 
-// BroadcastToSession sends a message to all clients in a session
+// sends a message to all clients in a session
 func (h *Hub) BroadcastToSession(sessionID string, msg *Message, excludeClientID string) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	h.broadcastToSession(sessionID, msg, excludeClientID)
 }
 
-// broadcastToSession is the internal broadcast function (must be called with lock held)
+// the internal broadcast function (must be called with lock held)
 func (h *Hub) broadcastToSession(sessionID string, msg *Message, excludeClientID string) {
 	sessionClients, exists := h.sessions[sessionID]
 	if !exists {
@@ -193,7 +210,6 @@ func (h *Hub) broadcastToSession(sessionID string, msg *Message, excludeClientID
 	}
 
 	for clientID, client := range sessionClients {
-		// Skip the excluded client (usually the sender)
 		if clientID == excludeClientID {
 			continue
 		}
@@ -204,7 +220,7 @@ func (h *Hub) broadcastToSession(sessionID string, msg *Message, excludeClientID
 	}
 }
 
-// GetSessionClients returns all clients in a session
+// returns all clients in a session
 func (h *Hub) GetSessionClients(sessionID string) []*Client {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -215,6 +231,7 @@ func (h *Hub) GetSessionClients(sessionID string) []*Client {
 	}
 
 	clients := make([]*Client, 0, len(sessionClients))
+
 	for _, client := range sessionClients {
 		clients = append(clients, client)
 	}
@@ -222,7 +239,7 @@ func (h *Hub) GetSessionClients(sessionID string) []*Client {
 	return clients
 }
 
-// GetClientCount returns the number of clients in a session
+// returns the number of clients in a session
 func (h *Hub) GetClientCount(sessionID string) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -235,21 +252,18 @@ func (h *Hub) GetClientCount(sessionID string) int {
 	return len(sessionClients)
 }
 
-// GetSessionCount returns the total number of active sessions
 func (h *Hub) GetSessionCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.sessions)
 }
 
-// Shutdown gracefully shuts down the hub
 func (h *Hub) Shutdown() {
 	if h.running {
 		close(h.shutdown)
 	}
 }
 
-// closeAllConnections closes all client connections
 func (h *Hub) closeAllConnections() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -263,6 +277,48 @@ func (h *Hub) closeAllConnections() {
 		}
 	}
 
-	// Clear all sessions
+	// clear all sessions and connection tracking
 	h.sessions = make(map[string]map[string]*Client)
+	h.userConnections = make(map[string]int)
+	h.ipConnections = make(map[string]int)
+}
+
+// checks if a new connection should be allowed based on limits
+func (h *Hub) CanAcceptConnection(userID, ipAddress string) (bool, string) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	// check per-user limit (only for authenticated users)
+	if userID != "" {
+		count := h.userConnections[userID]
+		if count >= maxConnectionsPerUser {
+			return false, "Maximum connections per user exceeded"
+		}
+	}
+
+	// check per-IP limit
+	count := h.ipConnections[ipAddress]
+	if count >= maxConnectionsPerIP {
+		return false, "Maximum connections per IP address exceeded"
+	}
+
+	return true, ""
+}
+
+// increments the connection count for an IP address
+func (h *Hub) TrackIPConnection(ipAddress string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.ipConnections[ipAddress]++
+}
+
+// decrements the connection count for an IP address
+func (h *Hub) UntrackIPConnection(ipAddress string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.ipConnections[ipAddress]--
+
+	if h.ipConnections[ipAddress] <= 0 {
+		delete(h.ipConnections, ipAddress)
+	}
 }

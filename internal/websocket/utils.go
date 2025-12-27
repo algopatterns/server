@@ -6,10 +6,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 )
 
-// returns the list of allowed origins for WebSocket connections
 func GetAllowedWebSocketOrigins() []string {
 	if envOrigins := os.Getenv("ALLOWED_ORIGINS"); envOrigins != "" {
 		origins := strings.Split(envOrigins, ",")
@@ -21,42 +21,45 @@ func GetAllowedWebSocketOrigins() []string {
 		return origins
 	}
 
-	// default production whitelist (fallback)
-	return []string{
-		"https://yourdomain.com",
-		"https://app.yourdomain.com",
-		// add more production origins here as needed
-	}
+	return []string{}
 }
 
-// checkOrigin validates the request origin based on environment
 func CheckOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
+
 	if origin == "" {
-		// Some clients may not send Origin header (e.g., same-origin requests)
-		// In this case, we allow the connection
-		return true
+		// allow no origin header in development
+		env := os.Getenv("ENVIRONMENT")
+
+		if env != "production" {
+			return true
+		}
+
+		log.Printf("webSocket connection with no Origin header")
+		return false
 	}
 
 	env := os.Getenv("ENVIRONMENT")
 	if env != "production" {
-		// development: allow all origins
+
 		return true
 	}
 
-	// production: validate against whitelist
+	// production: validate against allowed origins
 	allowedOrigins := GetAllowedWebSocketOrigins()
-	for _, allowed := range allowedOrigins {
-		if origin == allowed {
-			return true
-		}
+	if len(allowedOrigins) == 0 {
+		log.Printf("webSocket origin rejected: %s (ALLOWED_ORIGINS not configured in production)", origin)
+		return false
 	}
 
-	log.Printf("WebSocket origin rejected: %s (not in whitelist)", origin)
+	if slices.Contains(allowedOrigins, origin) {
+		return true
+	}
+
+	log.Printf("webSocket origin rejected: %s (not in allowed origins: %v)", origin, allowedOrigins)
 	return false
 }
 
-// generates a random client ID
 func GenerateClientID() (string, error) {
 	bytes := make([]byte, 16)
 

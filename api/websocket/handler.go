@@ -99,12 +99,23 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 			return
 		}
 
+		// check connection limits before accepting
+		ipAddress := c.ClientIP()
+		canAccept, reason := hub.CanAcceptConnection(userID, ipAddress)
+		if !canAccept {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "connection_limit_exceeded", "message": reason})
+			return
+		}
+
 		// generate client ID
 		clientID, err := ws.GenerateClientID()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to generate client ID"})
 			return
 		}
+
+		// track IP connection (will be untracked when client disconnects)
+		hub.TrackIPConnection(ipAddress)
 
 		// upgrade HTTP connection to WebSocket
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -117,7 +128,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 		isAuthenticated := userID != ""
 
 		// create client
-		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, isAuthenticated, conn, hub)
+		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, ipAddress, isAuthenticated, conn, hub)
 
 		// add participant to session (authenticated or anonymous)
 		if isAuthenticated {

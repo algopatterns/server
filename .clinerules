@@ -17,9 +17,8 @@ Building a RAG system for creating music via strudel with text commands using do
 - Longer, descriptive names for package-level variables and exported functions
 - Group imports in order: stdlib, external packages, internal packages
 - Error messages: lowercase, no trailing punctuation
-- Comments explain "why" not "what"
-- USE ONLY lowercase for comments except for abbreviated words
-- DO not include function names in the comments above them
+- Comments should explain "why" not "what" and only if needed
+- DO NOT add uneccessary comments
 - Keep functions focused and under 50 lines when possible
 
 ### Code Formatting & Spacing
@@ -374,4 +373,3 @@ When working on this codebase:
 ## References
 - Architecture details: [AGENTS.md](AGENTS.md)
 - Setup instructions: [README.md](README.md)
-- Current implementation: [internal/chunker/](internal/chunker/)

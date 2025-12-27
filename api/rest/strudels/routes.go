@@ -6,9 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterRoutes registers all strudel routes
+// registers all strudel routes
 func RegisterRoutes(router *gin.RouterGroup, strudelRepo *strudels.Repository) {
-	// Protected strudel routes (require authentication)
+	// strudel routes (require authentication)
 	strudelsGroup := router.Group("/strudels")
 	strudelsGroup.Use(auth.AuthMiddleware())
 	{
@@ -19,6 +19,6 @@ func RegisterRoutes(router *gin.RouterGroup, strudelRepo *strudels.Repository) {
 		strudelsGroup.DELETE("/:id", DeleteStrudelHandler(strudelRepo))
 	}
 
-	// Public strudels (no auth required)
+	// public strudels (no auth required)
 	router.GET("/public/strudels", ListPublicStrudelsHandler(strudelRepo))
 }

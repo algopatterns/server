@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// creates a handler to transfer an anonymous session to an authenticated user's account
+// transfers an anonymous session to an authenticated user's account
 func TransferSessionHandler(sessionMgr *sessions.Manager, strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// check if user is authenticated

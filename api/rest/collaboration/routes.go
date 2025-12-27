@@ -7,9 +7,9 @@ import (
 	"github.com/algorave/server/internal/auth"
 )
 
-// RegisterRoutes registers all collaboration/session routes
+// registers all collaboration/session routes
 func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository) {
-	// Session management (authenticated)
+	// session management (authenticated)
 	router.POST("/sessions", auth.AuthMiddleware(), CreateSessionHandler(sessionRepo))
 	router.GET("/sessions", auth.AuthMiddleware(), ListUserSessionsHandler(sessionRepo))
 	router.GET("/sessions/:id", GetSessionHandler(sessionRepo))
@@ -17,19 +17,19 @@ func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository) {
 	router.DELETE("/sessions/:id", auth.AuthMiddleware(), EndSessionHandler(sessionRepo))
 	router.POST("/sessions/:id/leave", auth.AuthMiddleware(), LeaveSessionHandler(sessionRepo))
 
-	// Session messages
+	// session messages
 	router.GET("/sessions/:id/messages", GetSessionMessagesHandler(sessionRepo))
 
-	// Invite tokens (host only)
+	// invite tokens (host only)
 	router.POST("/sessions/:id/invite", auth.AuthMiddleware(), CreateInviteTokenHandler(sessionRepo))
 	router.GET("/sessions/:id/invite", auth.AuthMiddleware(), ListInviteTokensHandler(sessionRepo))
 	router.DELETE("/sessions/:id/invite/:token_id", auth.AuthMiddleware(), RevokeInviteTokenHandler(sessionRepo))
 
-	// Participants
+	// participants
 	router.GET("/sessions/:id/participants", ListParticipantsHandler(sessionRepo))
 	router.DELETE("/sessions/:id/participants/:participant_id", auth.AuthMiddleware(), RemoveParticipantHandler(sessionRepo))
 	router.PATCH("/sessions/:id/participants/:participant_id", auth.AuthMiddleware(), UpdateParticipantRoleHandler(sessionRepo))
 
-	// Join session (optional auth)
+	// join session (optional auth)
 	router.POST("/sessions/join", auth.OptionalAuthMiddleware(), JoinSessionHandler(sessionRepo))
 }
