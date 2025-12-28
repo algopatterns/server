@@ -6,6 +6,7 @@ import (
 
 	"github.com/algorave/server/algorave/strudels"
 	"github.com/algorave/server/internal/agent"
+	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/logger"
 	"github.com/algorave/server/internal/sessions"
 	"github.com/gin-gonic/gin"
@@ -21,11 +22,7 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 		var req Request
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error":   "invalid_request",
-				"message": "validation failed",
-				"details": err.Error(),
-			})
+			errors.ValidationError(c, err)
 			return
 		}
 
@@ -88,16 +85,7 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 		})
 
 		if err != nil {
-			logger.ErrorErr(err, "failed to generate code",
-				"session_id", sessionID,
-				"authenticated", isAuthenticated,
-			)
-
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "generation_failed",
-				"message": "failed to generate code",
-			})
-
+			errors.InternalError(c, "failed to generate code", err)
 			return
 		}
 
@@ -124,7 +112,7 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 			Model:               resp.Model,
 			IsActionable:        resp.IsActionable,
 			ClarifyingQuestions: resp.ClarifyingQuestions,
-			SessionID:           sessionID, // return session ID for anonymous users
+			SessionID:           sessionID, // return session ID when available (required for anonymous users, optional for authenticated)
 		})
 	}
 }

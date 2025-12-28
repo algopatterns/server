@@ -5,6 +5,7 @@ import (
 
 	"github.com/algorave/server/algorave/strudels"
 	"github.com/algorave/server/internal/auth"
+	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -15,20 +16,20 @@ func TransferSessionHandler(sessionMgr *sessions.Manager, strudelRepo *strudels.
 		// check if user is authenticated
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		var req TransferSessionRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
 		// get the session
 		session, exists := sessionMgr.GetSession(req.SessionID)
 		if !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session not found or expired"})
+			errors.NotFound(c, "session")
 			return
 		}
 
@@ -43,7 +44,7 @@ func TransferSessionHandler(sessionMgr *sessions.Manager, strudelRepo *strudels.
 
 		strudel, err := strudelRepo.Create(c.Request.Context(), userID, strudelReq)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create strudel"})
+			errors.InternalError(c, "failed to create strudel", err)
 			return
 		}
 

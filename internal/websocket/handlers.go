@@ -13,27 +13,27 @@ func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {
 		// check rate limit
 		if !client.checkCodeUpdateRateLimit() {
-			client.SendError("RATE_LIMIT_EXCEEDED", "Too many code updates. Maximum 10 per second.", "")
+			client.SendError("too_many_requests", "too many code updates. maximum 10 per second.", "")
 			return ErrRateLimitExceeded
 		}
 
 		// check if client has write permissions
 		if !client.CanWrite() {
-			client.SendError("FORBIDDEN", "You don't have permission to edit code", "")
+			client.SendError("forbidden", "you don't have permission to edit code", "")
 			return ErrReadOnly
 		}
 
 		// parse payload
 		var payload CodeUpdatePayload
 		if err := msg.UnmarshalPayload(&payload); err != nil {
-			client.SendError("INVALID_PAYLOAD", "failed to parse code update", err.Error())
+			client.SendError("validation_error", "failed to parse code update", err.Error())
 			return err
 		}
 
 		// validate code size
 		codeSize := len([]byte(payload.Code))
 		if codeSize > maxCodeSize {
-			client.SendError("CODE_TOO_LARGE", "Code exceeds maximum size. Maximum 100 KB allowed.", "")
+			client.SendError("bad_request", "code exceeds maximum size. maximum 100 KB allowed.", "")
 			return ErrCodeTooLarge
 		}
 
@@ -44,7 +44,7 @@ func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 				"client_id", client.ID,
 				"session_id", client.SessionID,
 			)
-			client.SendError("DATABASE_ERROR", "Failed to save code update", err.Error())
+			client.SendError("server_error", "failed to save code update", err.Error())
 			return err
 		}
 
@@ -78,14 +78,14 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 	return func(hub *Hub, client *Client, msg *Message) error {
 		// check rate limit
 		if !client.checkAgentRequestRateLimit() {
-			client.SendError("RATE_LIMIT_EXCEEDED", "Too many agent requests. Maximum 5 per minute.", "")
+			client.SendError("too_many_requests", "too many agent requests. maximum 5 per minute.", "")
 			return ErrRateLimitExceeded
 		}
 
 		// parse payload
 		var payload AgentRequestPayload
 		if err := msg.UnmarshalPayload(&payload); err != nil {
-			client.SendError("INVALID_PAYLOAD", "failed to parse generation request", err.Error())
+			client.SendError("validation_error", "failed to parse generation request", err.Error())
 			return err
 		}
 
@@ -113,7 +113,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 				"client_id", client.ID,
 				"session_id", client.SessionID,
 			)
-			client.SendError("GENERATION_ERROR", "Failed to generate code", err.Error())
+			client.SendError("server_error", "failed to generate code", err.Error())
 			return err
 		}
 

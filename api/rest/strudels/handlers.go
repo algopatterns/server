@@ -6,6 +6,7 @@ import (
 
 	"github.com/algorave/server/algorave/strudels"
 	"github.com/algorave/server/internal/auth"
+	"github.com/algorave/server/internal/errors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,19 +15,19 @@ func CreateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		var req strudels.CreateStrudelRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
 		strudel, err := strudelRepo.Create(c.Request.Context(), userID, req)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create strudel"})
+			errors.InternalError(c, "failed to create strudel", err)
 			return
 		}
 
@@ -39,13 +40,13 @@ func ListStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		strudelsList, err := strudelRepo.List(c.Request.Context(), userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list strudels"})
+			errors.InternalError(c, "failed to list strudels", err)
 			return
 		}
 
@@ -58,14 +59,14 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		strudelID := c.Param("id")
 		strudel, err := strudelRepo.Get(c.Request.Context(), strudelID, userID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "strudel not found"})
+			errors.NotFound(c, "strudel")
 			return
 		}
 
@@ -78,20 +79,20 @@ func UpdateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		strudelID := c.Param("id")
 		var req strudels.UpdateStrudelRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
 		strudel, err := strudelRepo.Update(c.Request.Context(), strudelID, userID, req)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "strudel not found"})
+			errors.NotFound(c, "strudel")
 			return
 		}
 
@@ -104,14 +105,14 @@ func DeleteStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		strudelID := c.Param("id")
 		err := strudelRepo.Delete(c.Request.Context(), strudelID, userID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "strudel not found"})
+			errors.NotFound(c, "strudel")
 			return
 		}
 
@@ -132,7 +133,7 @@ func ListPublicStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc
 
 		strudelsList, err := strudelRepo.ListPublic(c.Request.Context(), limit)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list public strudels"})
+			errors.InternalError(c, "failed to list public strudels", err)
 			return
 		}
 

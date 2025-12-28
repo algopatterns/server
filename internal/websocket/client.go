@@ -128,7 +128,7 @@ func (c *Client) ReadPump() {
 				"client_id", c.ID,
 				"session_id", c.SessionID,
 			)
-			c.SendError("INVALID_MESSAGE", "Invalid message format", err.Error())
+			c.SendError("bad_request", "invalid message format", err.Error())
 			continue
 		}
 
@@ -220,6 +220,7 @@ func (c *Client) Send(msg *Message) (err error) {
 }
 
 // sends an error message to the client
+// code should be in lowercase_snake_case format to match REST API (e.g., "rate_limit_exceeded", "forbidden")
 func (c *Client) SendError(code, message, details string) {
 	// sanitize error details in production
 	sanitizedDetails := details
@@ -229,7 +230,7 @@ func (c *Client) SendError(code, message, details string) {
 	}
 
 	errorMsg, err := NewMessage(TypeError, c.SessionID, c.UserID, ErrorPayload{
-		Code:    code,
+		Error:   code,
 		Message: message,
 		Details: sanitizedDetails,
 	})

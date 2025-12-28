@@ -83,11 +83,11 @@ type AgentResponsePayload struct {
 	ClarifyingQuestions []string `json:"clarifying_questions,omitempty"`
 }
 
-// contains error information
+// contains error information (flattened to match REST API format)
 type ErrorPayload struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Details string `json:"details,omitempty"`
+	Error   string `json:"error"`             // error code (lowercase_snake_case, matches REST API)
+	Message string `json:"message"`           // user-friendly message
+	Details  string `json:"details,omitempty"` // optional details (sanitized in production)
 }
 
 // creates a new message with the given type and payload

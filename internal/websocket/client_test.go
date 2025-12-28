@@ -90,14 +90,15 @@ func TestClientSendError(t *testing.T) {
 	}
 
 	// send error
-	client.SendError("TEST_ERROR", "Test error message", "Additional details")
+	client.SendError("server_error", "test error message", "additional details")
 
 	// verify error message was sent
 	select {
 	case msg := <-client.send:
-		assert.Contains(t, string(msg), "TEST_ERROR")
-		assert.Contains(t, string(msg), "Test error message")
-		assert.Contains(t, string(msg), "error")
+		assert.Contains(t, string(msg), "server_error")
+		assert.Contains(t, string(msg), "\"error\"")
+		assert.Contains(t, string(msg), "test error message")
+		assert.Contains(t, string(msg), "additional details")
 	default:
 		t.Error("expected error message to be sent")
 	}

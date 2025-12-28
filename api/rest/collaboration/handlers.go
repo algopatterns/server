@@ -8,6 +8,7 @@ import (
 
 	"github.com/algorave/server/algorave/sessions"
 	"github.com/algorave/server/internal/auth"
+	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/logger"
 )
 
@@ -16,14 +17,14 @@ func CreateSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// parse request
 		var req CreateSessionRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
@@ -34,10 +35,7 @@ func CreateSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 			Code:       req.Code,
 		})
 		if err != nil {
-			logger.ErrorErr(err, "failed to create session",
-				"user_id", userID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to create session"})
+			errors.InternalError(c, "failed to create session", err)
 			return
 		}
 
@@ -62,7 +60,7 @@ func GetSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get session
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
@@ -109,7 +107,7 @@ func ListUserSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		userID, exists := auth.GetUserID(c)
 
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
@@ -119,13 +117,7 @@ func ListUserSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get sessions
 		userSessions, err := sessionRepo.GetUserSessions(c.Request.Context(), userID, activeOnly)
 		if err != nil {
-			logger.ErrorErr(err, "failed to get user sessions",
-				"user_id", userID,
-				"active_only", activeOnly,
-			)
-
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to retrieve sessions"})
-
+			errors.InternalError(c, "failed to retrieve sessions", err)
 			return
 		}
 
@@ -157,38 +149,34 @@ func UpdateSessionCodeHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get session to verify it exists
 		_, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		// check if user is host or co-author (must be authenticated)
 		participant, err := sessionRepo.GetAuthenticatedParticipant(c.Request.Context(), sessionID, userID)
 		if err != nil || (participant.Role != "host" && participant.Role != "co-author") {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "you don't have permission to edit this session"})
+			errors.Forbidden(c, "you don't have permission to edit this session")
 			return
 		}
 
 		// parse request
 		var req UpdateSessionCodeRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
 		// update code
 		if err := sessionRepo.UpdateSessionCode(c.Request.Context(), sessionID, req.Code); err != nil {
-			logger.ErrorErr(err, "failed to update session code",
-				"session_id", sessionID,
-				"user_id", userID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to update code"})
+			errors.InternalError(c, "failed to update code", err)
 			return
 		}
 
@@ -204,30 +192,26 @@ func EndSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get session to verify host
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		// only host can end session
 		if session.HostUserID != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "only the host can end the session"})
+			errors.Forbidden(c, "only the host can end the session")
 			return
 		}
 
 		// end session
 		if err := sessionRepo.EndSession(c.Request.Context(), sessionID); err != nil {
-			logger.ErrorErr(err, "failed to end session",
-				"session_id", sessionID,
-				"user_id", userID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to end session"})
+			errors.InternalError(c, "failed to end session", err)
 			return
 		}
 
@@ -243,27 +227,27 @@ func CreateInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get session to verify host
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		// only host can create invite tokens
 		if session.HostUserID != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "only the host can create invite tokens"})
+			errors.Forbidden(c, "only the host can create invite tokens")
 			return
 		}
 
 		// parse request
 		var req CreateInviteTokenRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
@@ -275,11 +259,7 @@ func CreateInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 			ExpiresAt: req.ExpiresAt,
 		})
 		if err != nil {
-			logger.ErrorErr(err, "failed to create invite token",
-				"session_id", sessionID,
-				"user_id", userID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to create invite token"})
+			errors.InternalError(c, "failed to create invite token", err)
 			return
 		}
 
@@ -304,10 +284,7 @@ func ListParticipantsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get participants (both authenticated and anonymous)
 		participants, err := sessionRepo.ListAllParticipants(c.Request.Context(), sessionID)
 		if err != nil {
-			logger.ErrorErr(err, "failed to list participants",
-				"session_id", sessionID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to retrieve participants"})
+			errors.InternalError(c, "failed to retrieve participants", err)
 			return
 		}
 
@@ -335,14 +312,14 @@ func JoinSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// parse request
 		var req JoinSessionRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
 		// validate invite token
 		token, err := sessionRepo.ValidateInviteToken(c.Request.Context(), req.InviteToken)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_invite", "message": "invalid or expired invite token"})
+			errors.InvalidInvite(c, "")
 			return
 		}
 
@@ -364,25 +341,14 @@ func JoinSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 			// authenticated user
 			_, err = sessionRepo.AddAuthenticatedParticipant(c.Request.Context(), token.SessionID, userID, displayName, token.Role)
 			if err != nil {
-				logger.ErrorErr(err, "failed to add authenticated participant",
-					"session_id", token.SessionID,
-					"user_id", userID,
-				)
-
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to join session"})
-
+				errors.InternalError(c, "failed to join session", err)
 				return
 			}
 		} else {
 			// anonymous user
 			_, err = sessionRepo.AddAnonymousParticipant(c.Request.Context(), token.SessionID, displayName, token.Role)
 			if err != nil {
-				logger.ErrorErr(err, "failed to add anonymous participant",
-					"session_id", token.SessionID,
-				)
-
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to join session"})
-
+				errors.InternalError(c, "failed to join session", err)
 				return
 			}
 		}
@@ -411,24 +377,20 @@ func LeaveSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get participant record
 		participant, err := sessionRepo.GetAuthenticatedParticipant(c.Request.Context(), sessionID, userID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not_participant", "message": "you are not a participant in this session"})
+			errors.NotFound(c, "you are not a participant in this session")
 			return
 		}
 
 		// mark as left
 		if err := sessionRepo.MarkAuthenticatedParticipantLeft(c.Request.Context(), participant.ID); err != nil {
-			logger.ErrorErr(err, "failed to mark participant as left",
-				"session_id", sessionID,
-				"participant_id", participant.ID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to leave session"})
+			errors.InternalError(c, "failed to leave session", err)
 			return
 		}
 
@@ -455,10 +417,7 @@ func GetSessionMessagesHandler(sessionRepo sessions.Repository) gin.HandlerFunc 
 		// get messages
 		messages, err := sessionRepo.GetMessages(c.Request.Context(), sessionID, limit)
 		if err != nil {
-			logger.ErrorErr(err, "failed to get messages",
-				"session_id", sessionID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to retrieve messages"})
+			errors.InternalError(c, "failed to retrieve messages", err)
 			return
 		}
 
@@ -475,44 +434,39 @@ func RemoveParticipantHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get session to verify host
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		// only host can remove participants
 		if session.HostUserID != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "only the host can remove participants"})
+			errors.Forbidden(c, "only the host can remove participants")
 			return
 		}
 
 		// get participant to ensure they're in this session
 		participant, err := sessionRepo.GetParticipantByID(c.Request.Context(), participantID)
 		if err != nil || participant.SessionID != sessionID {
-			c.JSON(http.StatusNotFound, gin.H{"error": "participant_not_found", "message": "participant not found in this session"})
+			errors.ParticipantNotFound(c)
 			return
 		}
 
 		// can't remove yourself
 		if participant.UserID != nil && *participant.UserID == userID {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_operation", "message": "cannot remove yourself. use leave endpoint instead"})
+			errors.InvalidOperation(c, "cannot remove yourself. use leave endpoint instead")
 			return
 		}
 
 		// remove participant
 		if err := sessionRepo.RemoveParticipant(c.Request.Context(), participantID); err != nil {
-			logger.ErrorErr(err, "failed to remove participant",
-				"session_id", sessionID,
-				"participant_id", participantID,
-				"user_id", userID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to remove participant"})
+			errors.InternalError(c, "failed to remove participant", err)
 			return
 		}
 
@@ -529,20 +483,20 @@ func UpdateParticipantRoleHandler(sessionRepo sessions.Repository) gin.HandlerFu
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get session to verify host
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		// only host can change roles
 		if session.HostUserID != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "only the host can change participant roles"})
+			errors.Forbidden(c, "only the host can change participant roles")
 			return
 		}
 
@@ -552,32 +506,26 @@ func UpdateParticipantRoleHandler(sessionRepo sessions.Repository) gin.HandlerFu
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			errors.ValidationError(c, err)
 			return
 		}
 
 		// get participant to ensure they're in this session
 		participant, err := sessionRepo.GetParticipantByID(c.Request.Context(), participantID)
 		if err != nil || participant.SessionID != sessionID {
-			c.JSON(http.StatusNotFound, gin.H{"error": "participant_not_found", "message": "participant not found in this session"})
+			errors.ParticipantNotFound(c)
 			return
 		}
 
 		// can't change host role
 		if participant.Role == "host" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_operation", "message": "cannot change host role"})
+			errors.InvalidOperation(c, "cannot change host role")
 			return
 		}
 
 		// update role
 		if err := sessionRepo.UpdateParticipantRole(c.Request.Context(), participantID, req.Role); err != nil {
-			logger.ErrorErr(err, "failed to update participant role",
-				"session_id", sessionID,
-				"participant_id", participantID,
-				"user_id", userID,
-				"new_role", req.Role,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to update role"})
+			errors.InternalError(c, "failed to update role", err)
 			return
 		}
 
@@ -593,31 +541,27 @@ func ListInviteTokensHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get session to verify host
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		// only host can view invite tokens
 		if session.HostUserID != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "only the host can view invite tokens"})
+			errors.Forbidden(c, "only the host can view invite tokens")
 			return
 		}
 
 		// get invite tokens
 		tokens, err := sessionRepo.ListInviteTokens(c.Request.Context(), sessionID)
 		if err != nil {
-			logger.ErrorErr(err, "failed to list invite tokens",
-				"session_id", sessionID,
-				"user_id", userID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to retrieve invite tokens"})
+			errors.InternalError(c, "failed to retrieve invite tokens", err)
 			return
 		}
 
@@ -649,31 +593,26 @@ func RevokeInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		// get session to verify host
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "session not found"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		// only host can revoke invite tokens
 		if session.HostUserID != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "only the host can revoke invite tokens"})
+			errors.Forbidden(c, "only the host can revoke invite tokens")
 			return
 		}
 
 		// revoke token
 		if err := sessionRepo.RevokeInviteToken(c.Request.Context(), tokenID); err != nil {
-			logger.ErrorErr(err, "failed to revoke invite token",
-				"session_id", sessionID,
-				"token_id", tokenID,
-				"user_id", userID,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "failed to revoke invite token"})
+			errors.InternalError(c, "failed to revoke invite token", err)
 			return
 		}
 

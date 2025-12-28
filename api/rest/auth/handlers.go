@@ -8,7 +8,7 @@ import (
 
 	"github.com/algorave/server/algorave/users"
 	"github.com/algorave/server/internal/auth"
-	"github.com/algorave/server/internal/logger"
+	"github.com/algorave/server/internal/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth/gothic"
@@ -35,7 +35,7 @@ func BeginAuthHandler(userRepo *users.Repository) gin.HandlerFunc {
 		provider := c.Param("provider")
 
 		if !isValidProvider(provider) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid provider"})
+			errors.BadRequest(c, "invalid provider", nil)
 			return
 		}
 
@@ -57,13 +57,9 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 		q.Add("provider", provider)
 		c.Request.URL.RawQuery = q.Encode()
 
-		// complete OAuth flow
 		gothUser, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 		if err != nil {
-			logger.ErrorErr(err, "OAuth authentication failed",
-				"provider", provider,
-			)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication failed"})
+			errors.InternalError(c, "authentication failed", err)
 			return
 		}
 
@@ -77,14 +73,14 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 		)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
+			errors.InternalError(c, "failed to create user", err)
 			return
 		}
 
 		// generate JWT token
 		token, err := auth.GenerateJWT(user.ID, user.Email)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+			errors.InternalError(c, "failed to generate token", err)
 			return
 		}
 
@@ -102,13 +98,13 @@ func GetCurrentUserHandler(userRepo *users.Repository) gin.HandlerFunc {
 		userID, exists := auth.GetUserID(c)
 
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
 		user, err := userRepo.FindByID(c.Request.Context(), userID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			errors.NotFound(c, "user")
 			return
 		}
 
@@ -121,7 +117,7 @@ func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+			errors.Unauthorized(c, "")
 			return
 		}
 
@@ -131,13 +127,13 @@ func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			errors.ValidationError(c, err)
 			return
 		}
 
 		user, err := userRepo.UpdateProfile(c.Request.Context(), userID, req.Name, req.AvatarURL)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update profile"})
+			errors.InternalError(c, "failed to update profile", err)
 			return
 		}
 
@@ -145,7 +141,7 @@ func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 	}
 }
 
-// handles logout (client-side token deletion mainly)
+// handles logout (client-side token deletion)
 func LogoutHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		gothic.Logout(c.Writer, c.Request)
