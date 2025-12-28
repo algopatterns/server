@@ -210,6 +210,11 @@ definitions:
         description: 1MB limit
         maxLength: 1048576
         type: string
+      provider:
+        description: '"openai" or "claude"'
+        type: string
+      provider_api_key:
+        type: string
       session_id:
         type: string
       strudel_id:
@@ -283,6 +288,35 @@ definitions:
         items:
           $ref: '#/definitions/github_com_algorave_server_algorave_strudels.Strudel'
         type: array
+    type: object
+  api_rest_users.DailyUsage:
+    properties:
+      count:
+        description: Number of generations
+        type: integer
+      date:
+        description: 'Format: "2006-01-02"'
+        type: string
+    type: object
+  api_rest_users.UsageResponse:
+    properties:
+      history:
+        description: Last 30 days
+        items:
+          $ref: '#/definitions/api_rest_users.DailyUsage'
+        type: array
+      limit:
+        description: Daily limit (-1 for unlimited)
+        type: integer
+      remaining:
+        description: Remaining generations today (-1 for unlimited)
+        type: integer
+      tier:
+        description: '"free", "pro", "byok"'
+        type: string
+      today:
+        description: Generations used today
+        type: integer
     type: object
   github_com_algorave_server_algorave_sessions.Message:
     properties:
@@ -1355,6 +1389,30 @@ paths:
       summary: Update strudel
       tags:
       - strudels
+  /api/v1/users/usage:
+    get:
+      description: Returns usage statistics for the authenticated user including today's
+        count, daily limit, and usage history
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api_rest_users.UsageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_algorave_server_internal_errors.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_algorave_server_internal_errors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user's usage statistics
+      tags:
+      - users
   /api/v1/ws:
     get:
       consumes:

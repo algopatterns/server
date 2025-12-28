@@ -1404,6 +1404,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/users/usage": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns usage statistics for the authenticated user including today's count, daily limit, and usage history",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user's usage statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api_rest_users.UsageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_algorave_server_internal_errors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_algorave_server_internal_errors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ws": {
             "get": {
                 "description": "Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token.\n\nMessage Types:\n- code_update: Real-time code changes\n- agent_request: AI code generation requests\n- chat_message: Chat messages\n- user_joined: User join notifications\n- user_left: User leave notifications",
@@ -1827,6 +1864,13 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 1048576
                 },
+                "provider": {
+                    "description": "\"openai\" or \"claude\"",
+                    "type": "string"
+                },
+                "provider_api_key": {
+                    "type": "string"
+                },
                 "session_id": {
                     "type": "string"
                 },
@@ -1935,6 +1979,47 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_algorave_server_algorave_strudels.Strudel"
                     }
+                }
+            }
+        },
+        "api_rest_users.DailyUsage": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "description": "Number of generations",
+                    "type": "integer"
+                },
+                "date": {
+                    "description": "Format: \"2006-01-02\"",
+                    "type": "string"
+                }
+            }
+        },
+        "api_rest_users.UsageResponse": {
+            "type": "object",
+            "properties": {
+                "history": {
+                    "description": "Last 30 days",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api_rest_users.DailyUsage"
+                    }
+                },
+                "limit": {
+                    "description": "Daily limit (-1 for unlimited)",
+                    "type": "integer"
+                },
+                "remaining": {
+                    "description": "Remaining generations today (-1 for unlimited)",
+                    "type": "integer"
+                },
+                "tier": {
+                    "description": "\"free\", \"pro\", \"byok\"",
+                    "type": "string"
+                },
+                "today": {
+                    "description": "Generations used today",
+                    "type": "integer"
                 }
             }
         },
