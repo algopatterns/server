@@ -118,6 +118,7 @@ func (c *Client) ReadPump() {
 					"error", err,
 				)
 			}
+
 			break
 		}
 
@@ -128,6 +129,7 @@ func (c *Client) ReadPump() {
 				"client_id", c.ID,
 				"session_id", c.SessionID,
 			)
+
 			c.SendError("bad_request", "invalid message format", err.Error())
 			continue
 		}
@@ -155,6 +157,7 @@ func (c *Client) WritePump() {
 		select {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+
 			if !ok {
 				// hub closed the channel
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -165,11 +168,13 @@ func (c *Client) WritePump() {
 			if err != nil {
 				return
 			}
+
 			w.Write(message)
 
 			// add queued messages to the current webSocket message
 			n := len(c.send)
-			for i := 0; i < n; i++ {
+
+			for range n {
 				w.Write([]byte{'\n'})
 				w.Write(<-c.send)
 			}
@@ -180,6 +185,7 @@ func (c *Client) WritePump() {
 
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
@@ -197,6 +203,7 @@ func (c *Client) Send(msg *Message) (err error) {
 	}()
 
 	c.mu.RLock()
+
 	if c.closed {
 		c.mu.RUnlock()
 		return ErrConnectionClosed
@@ -220,7 +227,6 @@ func (c *Client) Send(msg *Message) (err error) {
 }
 
 // sends an error message to the client
-// code should be in lowercase_snake_case format to match REST API (e.g., "rate_limit_exceeded", "forbidden")
 func (c *Client) SendError(code, message, details string) {
 	// sanitize error details in production
 	sanitizedDetails := details

@@ -104,7 +104,7 @@ func TestHubBroadcastToSession(t *testing.T) {
 	hub.Register <- client2
 	time.Sleep(100 * time.Millisecond)
 
-	// Drain "user joined" messages
+	// drain "user joined" messages
 	select {
 	case <-client1.send:
 	default:

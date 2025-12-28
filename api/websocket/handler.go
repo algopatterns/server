@@ -58,7 +58,6 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 					displayName = "Host"
 				} else {
 					// user is authenticated but not host - default to viewer
-					// they should use invite token for higher permissions
 					role = "viewer"
 					displayName = "Viewer"
 				}

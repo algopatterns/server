@@ -210,6 +210,7 @@ func (h *Hub) handleMessage(msg *Message) {
 				"client_id", sender.ID,
 				"session_id", msg.SessionID,
 			)
+
 			sender.SendError("server_error", "failed to process message", err.Error())
 		}
 	} else {

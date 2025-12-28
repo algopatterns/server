@@ -7,28 +7,28 @@ import (
 
 // message types for webSocket communication
 const (
-	// typeCodeUpdate is sent when a user updates the code
+	// is sent when a user updates the code
 	TypeCodeUpdate = "code_update"
 
-	// typeUserJoined is sent when a new user joins the session
+	// is sent when a new user joins the session
 	TypeUserJoined = "user_joined"
 
-	// typeUserLeft is sent when a user leaves the session
+	// is sent when a user leaves the session
 	TypeUserLeft = "user_left"
 
-	// typeAgentRequest is sent when a user requests code generation
+	// is sent when a user requests code generation
 	TypeAgentRequest = "agent_request"
 
-	// typeAgentResponse is sent when the agent completes code generation
+	// is sent when the agent completes code generation
 	TypeAgentResponse = "agent_response"
 
-	// typeError is sent when an error occurs
+	// is sent when an error occurs
 	TypeError = "error"
 
-	// typePing is sent by clients to keep the connection alive
+	// is sent by clients to keep the connection alive
 	TypePing = "ping"
 
-	// typePong is sent by server in response to ping
+	// is sent by server in response to ping
 	TypePong = "pong"
 )
 
@@ -66,11 +66,12 @@ type UserLeftPayload struct {
 // contains a code generation request
 type AgentRequestPayload struct {
 	UserQuery           string `json:"user_query"`
-	EditorState         string `json:"editor_state,omitempty"`
+	EditorState         string `json:"editor_state,omitempty"` // Private, not broadcasted
 	ConversationHistory []struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
-	} `json:"conversation_history,omitempty"`
+	} `json:"conversation_history,omitempty"` // Private, not broadcasted
+	DisplayName string `json:"display_name,omitempty"` // Added by server for broadcasting
 }
 
 // contains the agent's code generation response
@@ -87,7 +88,7 @@ type AgentResponsePayload struct {
 type ErrorPayload struct {
 	Error   string `json:"error"`             // error code (lowercase_snake_case, matches REST API)
 	Message string `json:"message"`           // user-friendly message
-	Details  string `json:"details,omitempty"` // optional details (sanitized in production)
+	Details string `json:"details,omitempty"` // optional details (sanitized in production)
 }
 
 // creates a new message with the given type and payload

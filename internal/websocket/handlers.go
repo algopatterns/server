@@ -89,6 +89,23 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 			return err
 		}
 
+		// broadcast the user's prompt to all clients (sanitized - no private data)
+		broadcastPayload := AgentRequestPayload{
+			UserQuery:   payload.UserQuery,
+			DisplayName: client.DisplayName,
+		}
+
+		broadcastMsg, err := NewMessage(TypeAgentRequest, client.SessionID, client.UserID, broadcastPayload)
+		if err == nil {
+			hub.BroadcastToSession(client.SessionID, broadcastMsg, "")
+		} else {
+			logger.Warn("failed to create broadcast message for agent request",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+				"error", err,
+			)
+		}
+
 		// convert conversation history to agent.Message format
 		conversationHistory := make([]agent.Message, 0, len(payload.ConversationHistory))
 		for _, msg := range payload.ConversationHistory {
