@@ -3,15 +3,15 @@ package sessions
 import (
 	"net/http"
 
+	"github.com/algorave/server/algorave/anonsessions"
 	"github.com/algorave/server/algorave/strudels"
 	"github.com/algorave/server/internal/auth"
 	"github.com/algorave/server/internal/errors"
-	"github.com/algorave/server/internal/sessions"
 	"github.com/gin-gonic/gin"
 )
 
 // transfers an anonymous session to an authenticated user's account
-func TransferSessionHandler(sessionMgr *sessions.Manager, strudelRepo *strudels.Repository) gin.HandlerFunc {
+func TransferSessionHandler(sessionMgr *anonsessions.Manager, strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
 		if !exists {

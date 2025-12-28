@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/algorave/server/algorave/anonsessions"
 	"github.com/algorave/server/algorave/strudels"
 	"github.com/algorave/server/internal/agent"
 	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/logger"
-	"github.com/algorave/server/internal/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,7 +16,7 @@ type StrudelGetter interface {
 	Get(ctx context.Context, strudelID, userID string) (*strudels.Strudel, error)
 }
 
-func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *sessions.Manager) gin.HandlerFunc {
+func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *anonsessions.Manager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req Request
 

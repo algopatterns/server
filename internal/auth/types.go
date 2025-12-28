@@ -1,22 +1,12 @@
 package auth
 
 import (
-	"time"
-
+	"github.com/algorave/server/algorave/users"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// represents an authenticated user
-type User struct {
-	ID         string    `json:"id"`
-	Email      string    `json:"email"`
-	Provider   string    `json:"provider"`
-	ProviderID string    `json:"-"`
-	Name       string    `json:"name"`
-	AvatarURL  string    `json:"avatar_url,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-}
+// User is an alias for users.User for backward compatibility
+type User = users.User
 
 // represents JWT claims
 type Claims struct {
