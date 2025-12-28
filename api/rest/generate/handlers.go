@@ -34,6 +34,15 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 		editorState := req.EditorState
 		sessionID := req.SessionID
 
+		// validate optional UUIDs if provided
+		if !errors.ValidateUUID(c, req.StrudelID, "strudel") {
+			return
+		}
+
+		if !errors.ValidateUUID(c, req.SessionID, "session") {
+			return
+		}
+
 		// priority 1: if strudel_id is provided and user is authenticated, load history from strudel
 		if req.StrudelID != "" && isAuthenticated {
 			strudel, err := strudelRepo.Get(c.Request.Context(), req.StrudelID, userID.(string))
@@ -44,7 +53,6 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 					"error", err,
 				)
 			} else {
-				// use strudel's conversation history
 				conversationHistory = strudel.ConversationHistory
 				editorState = strudel.Code
 			}

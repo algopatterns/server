@@ -63,7 +63,11 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 			return
 		}
 
-		strudelID := c.Param("id")
+		strudelID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
+
 		strudel, err := strudelRepo.Get(c.Request.Context(), strudelID, userID)
 		if err != nil {
 			errors.NotFound(c, "strudel")
@@ -83,8 +87,13 @@ func UpdateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 			return
 		}
 
-		strudelID := c.Param("id")
+		strudelID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
+
 		var req strudels.UpdateStrudelRequest
+
 		if err := c.ShouldBindJSON(&req); err != nil {
 			errors.ValidationError(c, err)
 			return
@@ -109,7 +118,11 @@ func DeleteStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 			return
 		}
 
-		strudelID := c.Param("id")
+		strudelID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
+
 		err := strudelRepo.Delete(c.Request.Context(), strudelID, userID)
 		if err != nil {
 			errors.NotFound(c, "strudel")

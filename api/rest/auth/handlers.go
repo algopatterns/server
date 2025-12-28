@@ -122,8 +122,8 @@ func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 		}
 
 		var req struct {
-			Name      string `json:"name" binding:"required"`
-			AvatarURL string `json:"avatar_url"`
+			Name      string `json:"name" binding:"required,max=100"`
+			AvatarURL string `json:"avatar_url" binding:"max=500"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {

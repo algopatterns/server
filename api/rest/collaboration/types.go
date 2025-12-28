@@ -4,8 +4,8 @@ import "time"
 
 // request to create a new session
 type CreateSessionRequest struct {
-	Title string `json:"title" binding:"required"`
-	Code  string `json:"code"`
+	Title string `json:"title" binding:"required,max=200"`
+	Code  string `json:"code" binding:"max=1048576"` // 1MB limit
 }
 
 // response after creating a session
@@ -45,7 +45,7 @@ type ParticipantResponse struct {
 
 // request to update session code
 type UpdateSessionCodeRequest struct {
-	Code string `json:"code" binding:"required"`
+	Code string `json:"code" binding:"required,max=1048576"` // 1MB limit
 }
 
 // request to create an invite token
@@ -70,7 +70,7 @@ type InviteTokenResponse struct {
 // request to join a session via invite token
 type JoinSessionRequest struct {
 	InviteToken string `json:"invite_token" binding:"required"`
-	DisplayName string `json:"display_name,omitempty"`
+	DisplayName string `json:"display_name,omitempty" binding:"max=100"`
 }
 
 // response after joining a session

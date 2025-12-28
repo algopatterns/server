@@ -55,7 +55,10 @@ func CreateSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // retrieves a session by ID
 func GetSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		// get session
 		session, err := sessionRepo.GetSession(c.Request.Context(), sessionID)
@@ -144,7 +147,10 @@ func ListUserSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // updates the strudel code in a session
 func UpdateSessionCodeHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
@@ -187,7 +193,10 @@ func UpdateSessionCodeHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // ends a session
 func EndSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
@@ -222,7 +231,10 @@ func EndSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // creates an invite token for a session
 func CreateInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
@@ -279,7 +291,10 @@ func CreateInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // lists all participants in a session
 func ListParticipantsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		// get participants (both authenticated and anonymous)
 		participants, err := sessionRepo.ListAllParticipants(c.Request.Context(), sessionID)
@@ -372,7 +387,10 @@ func JoinSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // leaves a session
 func LeaveSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
@@ -401,7 +419,10 @@ func LeaveSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // gets a session's conversation history
 func GetSessionMessagesHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		limit := 100
 
@@ -428,8 +449,14 @@ func GetSessionMessagesHandler(sessionRepo sessions.Repository) gin.HandlerFunc 
 // removes a participant from a session (kick)
 func RemoveParticipantHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
-		participantID := c.Param("participant_id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
+		participantID, ok := errors.ValidatePathUUID(c, "participant_id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
@@ -477,8 +504,15 @@ func RemoveParticipantHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // updates a participant's role
 func UpdateParticipantRoleHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
-		participantID := c.Param("participant_id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
+
+		participantID, ok := errors.ValidatePathUUID(c, "participant_id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
@@ -536,7 +570,10 @@ func UpdateParticipantRoleHandler(sessionRepo sessions.Repository) gin.HandlerFu
 // lists all invite tokens for a session
 func ListInviteTokensHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)
@@ -587,8 +624,15 @@ func ListInviteTokensHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // revokes an invite token
 func RevokeInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionID := c.Param("id")
-		tokenID := c.Param("token_id")
+		sessionID, ok := errors.ValidatePathUUID(c, "id")
+		if !ok {
+			return
+		}
+
+		tokenID, ok := errors.ValidatePathUUID(c, "token_id")
+		if !ok {
+			return
+		}
 
 		// get authenticated user
 		userID, exists := auth.GetUserID(c)

@@ -3,11 +3,15 @@ package errors
 import (
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/algorave/server/internal/logger"
 	"github.com/gin-gonic/gin"
 )
+
+// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 characters)
+var uuidRegex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // represents a standardized error response
 type ErrorResponse struct {
@@ -59,6 +63,7 @@ func Forbidden(c *gin.Context, message string) {
 // returns a 404 not found error
 func NotFound(c *gin.Context, resource string) {
 	message := "resource not found"
+
 	if resource != "" {
 		message = resource + " not found"
 	}
@@ -109,7 +114,6 @@ func ValidationError(c *gin.Context, err error) {
 }
 
 // returns a 500 internal server error
-// Logs full error server-side, returns sanitized error to client
 func InternalError(c *gin.Context, message string, err error) {
 	if message == "" {
 		message = "an error occurred"
@@ -228,4 +232,40 @@ func sanitizeError(err error) string {
 	}
 
 	return "an error occurred"
+}
+
+// validates a UUID string format
+func IsValidUUID(id string) bool {
+	if id == "" {
+		return false
+	}
+
+	return uuidRegex.MatchString(strings.ToLower(id))
+}
+
+// validates a UUID string and returns 404 if invalid
+func ValidateUUID(c *gin.Context, id string, resourceName string) bool {
+	if id != "" && !IsValidUUID(id) {
+		NotFound(c, resourceName)
+		return false
+	}
+
+	return true
+}
+
+// validates a UUID parameter from the request path
+func ValidatePathUUID(c *gin.Context, paramName string) (string, bool) {
+	id := c.Param(paramName)
+
+	if id == "" {
+		BadRequest(c, "missing "+paramName, nil)
+		return "", false
+	}
+
+	if !IsValidUUID(id) {
+		NotFound(c, "resource")
+		return "", false
+	}
+
+	return id, true
 }
