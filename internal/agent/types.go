@@ -7,13 +7,13 @@ import (
 	"github.com/algorave/server/internal/retriever"
 )
 
-// defines the interface for document and example retrieval
+// interface for document and example retrieval
 type Retriever interface {
 	HybridSearchDocs(ctx context.Context, query, editorState string, k int) ([]retriever.SearchResult, error)
 	HybridSearchExamples(ctx context.Context, query, editorState string, k int) ([]retriever.ExampleResult, error)
 }
 
-// orchestrates RAG-powered code generation
+// orchestrates rag-powered code generation
 type Agent struct {
 	retriever Retriever
 	generator llm.LLM

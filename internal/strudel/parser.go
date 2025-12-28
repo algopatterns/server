@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-// compiled regex patterns (shared across all functions)
 var (
 	// sound extraction: sound("bd") or s("bd")
 	// supports both quotes and backticks: s("bd") or s(`bd`)
@@ -28,16 +27,6 @@ var (
 	// scale/mode: scale("minor"), mode("dorian")
 	scalePattern = regexp.MustCompile(`(?:scale|mode)\s*\(\s*["'](\w+)["']`)
 )
-
-// contains all extracted elements from Strudel code
-type ParsedCode struct {
-	Sounds    []string       // sound sample names: ["bd", "hh", "sd"]
-	Notes     []string       // note names: ["c", "e", "g"]
-	Functions []string       // function names: ["fast", "slow", "stack"]
-	Variables []string       // variable names: ["pat1", "rhythm"]
-	Scales    []string       // scale/mode names: ["minor", "dorian"]
-	Patterns  map[string]int // pattern counts: {"stack": 2, "arrange": 1}
-}
 
 // extracts all elements from Strudel code
 func Parse(code string) ParsedCode {

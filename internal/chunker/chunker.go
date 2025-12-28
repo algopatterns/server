@@ -102,8 +102,8 @@ func ChunkDocument(content, sourcePathname string, pageName string, opts ChunkOp
 	return chunks, nil
 }
 
-// ChunkDocuments discovers all markdown files in a directory and chunks them
-// Returns chunks and a slice of errors encountered (one per failed file)
+// discovers all markdown files in a directory and chunks them
+// returns chunks and a slice of errors encountered (one per failed file)
 func ChunkDocuments(docsPath string) ([]Chunk, []error) {
 	opts := DefaultOptions()
 	var allChunks []Chunk
@@ -132,7 +132,6 @@ func ChunkDocuments(docsPath string) ([]Chunk, []error) {
 
 		fileCount++
 
-		// read file content
 		content, err := os.ReadFile(path)
 		if err != nil {
 			logger.Warn("failed to read file",
@@ -143,13 +142,11 @@ func ChunkDocuments(docsPath string) ([]Chunk, []error) {
 			return nil // continue with other files
 		}
 
-		// get relative page name
 		pageName, err := filepath.Rel(docsPath, path)
 		if err != nil {
 			pageName = filepath.Base(path)
 		}
 
-		// chunk the document
 		chunks, err := ChunkDocument(string(content), strings.TrimPrefix(docsPath, "./"), pageName, opts)
 		if err != nil {
 			logger.Warn("failed to chunk document",

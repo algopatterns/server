@@ -21,7 +21,6 @@ const (
 )
 
 // shared HTTP client for OpenAI API calls
-// reuses connection pool and timeout configuration
 var openaiHTTPClient = &http.Client{
 	Timeout: 60 * time.Second, // total request timeout
 	Transport: &http.Transport{
@@ -34,7 +33,6 @@ var openaiHTTPClient = &http.Client{
 
 // rate limiter for OpenAI API calls
 // limits to 50 requests/second with burst capacity of 10
-// prevents hitting OpenAI's rate limits (typically 3,500 requests/min for embeddings)
 var openaiRateLimiter = rate.NewLimiter(50, 10)
 
 type embeddingRequest struct {
@@ -178,7 +176,7 @@ type openaiChatResponse struct {
 	} `json:"usage"`
 }
 
-// OpenAIGenerator implements TextGenerator and QueryTransformer for OpenAI
+// implements TextGenerator and QueryTransformer for OpenAI
 type OpenAIGenerator struct {
 	config     OpenAIConfig
 	httpClient *http.Client
@@ -246,6 +244,7 @@ func (g *OpenAIGenerator) GenerateText(ctx context.Context, req TextGenerationRe
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -314,6 +313,7 @@ func (g *OpenAIGenerator) AnalyzeQuery(ctx context.Context, userQuery string) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {

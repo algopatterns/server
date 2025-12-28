@@ -19,10 +19,8 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     ws.CheckOrigin,
 }
 
-// handles WebSocket connection upgrades
 func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// parse query parameters
 		var params ConnectParams
 		if err := c.ShouldBindQuery(&params); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_params", "message": err.Error()})
@@ -47,12 +45,10 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 		var displayName string
 		var role string
 
-		// try JWT authentication first
 		if params.Token != "" {
 			claims, err := auth.ValidateJWT(params.Token)
 			if err == nil {
 				userID = claims.UserID
-				// check if user is the host
 				if userID == session.HostUserID {
 					role = "host"
 					displayName = "Host"
@@ -77,7 +73,6 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 				return
 			}
 
-			// check max uses
 			if inviteToken.MaxUses != nil && inviteToken.UsesCount >= *inviteToken.MaxUses {
 				c.JSON(http.StatusForbidden, gin.H{"error": "invite_expired", "message": "Invite token has reached maximum uses"})
 				return
@@ -98,22 +93,21 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 			return
 		}
 
-		// check connection limits before accepting
+		// check connection limits before accepting new connection
 		ipAddress := c.ClientIP()
 		canAccept, reason := hub.CanAcceptConnection(userID, ipAddress)
+
 		if !canAccept {
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "connection_limit_exceeded", "message": reason})
 			return
 		}
 
-		// generate client ID
 		clientID, err := ws.GenerateClientID()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to generate client ID"})
 			return
 		}
 
-		// track IP connection (will be untracked when client disconnects)
 		hub.TrackIPConnection(ipAddress)
 
 		// upgrade HTTP connection to WebSocket
@@ -123,13 +117,11 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 				"session_id", params.SessionID,
 				"ip", ipAddress,
 			)
+
 			return
 		}
 
-		// determine if user is authenticated
 		isAuthenticated := userID != ""
-
-		// create client
 		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, ipAddress, isAuthenticated, conn, hub)
 
 		// add participant to session (authenticated or anonymous)
@@ -141,7 +133,6 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 					"user_id", userID,
 					"error", err,
 				)
-				// continue anyway - this might be a duplicate participant
 			}
 		} else {
 			_, err = sessionRepo.AddAnonymousParticipant(ctx, params.SessionID, displayName, role)
@@ -150,14 +141,11 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 					"session_id", params.SessionID,
 					"error", err,
 				)
-				// continue anyway - participant might already exist
 			}
 		}
 
-		// register client with hub
 		hub.Register <- client
 
-		// start client pumps
 		go client.WritePump()
 		go client.ReadPump()
 

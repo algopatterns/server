@@ -20,7 +20,7 @@ func (c *Client) ClearAllExamples(ctx context.Context) error {
 	return nil
 }
 
-// InsertExamplesBatch inserts multiple examples in a single transaction
+// inserts multiple examples in a single transaction
 func (c *Client) InsertExamplesBatch(ctx context.Context, examples []examples.Example, embeddings [][]float32) error {
 	if len(examples) != len(embeddings) {
 		return fmt.Errorf("examples and embeddings length mismatch")
@@ -35,7 +35,6 @@ func (c *Client) InsertExamplesBatch(ctx context.Context, examples []examples.Ex
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// defer rollback - will be no-op if commit succeeds
 	defer func() {
 		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
 			logger.Warn("failed to rollback transaction", "error", err)
@@ -65,7 +64,6 @@ func (c *Client) InsertExamplesBatch(ctx context.Context, examples []examples.Ex
 		}
 	}
 
-	// must close batch results before committing
 	if err := br.Close(); err != nil {
 		return fmt.Errorf("failed to close batch: %w", err)
 	}

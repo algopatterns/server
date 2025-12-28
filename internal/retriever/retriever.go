@@ -11,8 +11,6 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
-// New creates a retriever client with injected dependencies.
-// The caller owns the lifecycle of db, embedder, and transformer.
 func New(db *pgxpool.Pool, llm llm.LLM) *Client {
 	return &Client{
 		db:   db,
@@ -21,7 +19,6 @@ func New(db *pgxpool.Pool, llm llm.LLM) *Client {
 	}
 }
 
-// NewWithTopK creates a retriever with a custom topK value
 func NewWithTopK(db *pgxpool.Pool, llm llm.LLM, topK int) *Client {
 	return &Client{
 		db:   db,
@@ -30,7 +27,6 @@ func NewWithTopK(db *pgxpool.Pool, llm llm.LLM, topK int) *Client {
 	}
 }
 
-// VectorSearch performs a vector similarity search on doc_embeddings
 func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) ([]SearchResult, error) {
 	embedding, err := c.llm.GenerateEmbedding(ctx, queryText)
 	if err != nil {
@@ -71,7 +67,6 @@ func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) (
 	return results, nil
 }
 
-// SearchExamples performs a vector similarity search on example_strudels
 func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int) ([]ExampleResult, error) {
 	embedding, err := c.llm.GenerateEmbedding(ctx, queryText)
 	if err != nil {
@@ -113,7 +108,6 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 	return results, nil
 }
 
-// BM25Search performs keyword-based full-text search on doc_embeddings
 func (c *Client) BM25Search(ctx context.Context, queryText string, topK int) ([]SearchResult, error) {
 	rows, err := c.db.Query(ctx, bm25SearchDocsQuery, queryText, topK)
 	if err != nil {
@@ -138,7 +132,6 @@ func (c *Client) BM25Search(ctx context.Context, queryText string, topK int) ([]
 			return nil, fmt.Errorf("failed to scan BM25 row: %w", err)
 		}
 
-		// Convert BM25 rank to similarity score (0-1 range)
 		result.Similarity = float32(rank)
 		results = append(results, result)
 	}
@@ -150,7 +143,6 @@ func (c *Client) BM25Search(ctx context.Context, queryText string, topK int) ([]
 	return results, nil
 }
 
-// BM25SearchExamples performs keyword-based full-text search on example_strudels
 func (c *Client) BM25SearchExamples(ctx context.Context, queryText string, topK int) ([]ExampleResult, error) {
 	rows, err := c.db.Query(ctx, bm25SearchExamplesQuery, queryText, topK)
 	if err != nil {
@@ -176,7 +168,6 @@ func (c *Client) BM25SearchExamples(ctx context.Context, queryText string, topK 
 			return nil, fmt.Errorf("failed to scan BM25 example row: %w", err)
 		}
 
-		// Convert BM25 rank to similarity score
 		result.Similarity = float32(rank)
 		results = append(results, result)
 	}
@@ -188,9 +179,7 @@ func (c *Client) BM25SearchExamples(ctx context.Context, queryText string, topK 
 	return results, nil
 }
 
-// HybridSearchDocs implements hybrid search (vector + BM25) for documentation
 func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState string, topK int) ([]SearchResult, error) {
-	// transform query to add technical keywords for vector search
 	searchQuery, err := c.llm.TransformQuery(ctx, userQuery)
 	if err != nil {
 		logger.Warn("query transformation failed, using original query", "error", err)
@@ -204,14 +193,12 @@ func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState st
 	var vectorErr, bm25Err error
 	var wg sync.WaitGroup
 
-	// vector search (70% weight) - uses transformed query for semantic matching
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		vectorResults, vectorErr = c.VectorSearch(ctx, searchQuery, searchK)
 	}()
 
-	// BM25 search (30% weight) - uses original query for exact keyword matching
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -220,21 +207,16 @@ func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState st
 
 	wg.Wait()
 
-	// check for errors
 	if vectorErr != nil {
 		return nil, fmt.Errorf("vector search failed: %w", vectorErr)
 	}
 
 	if bm25Err != nil {
-		// don't fail completely, just log and use vector only
 		logger.Warn("BM25 search failed, using vector only", "error", bm25Err)
 		bm25Results = []SearchResult{}
 	}
 
-	// merge vector and BM25 results with weighted scoring (70% vector, 30% BM25)
 	merged := mergeVectorAndBM25Docs(vectorResults, bm25Results, topK)
-
-	// fetch special chunks and organize by page
 	organized, err := c.organizeByPage(ctx, merged)
 	if err != nil {
 		return nil, fmt.Errorf("failed to organize results: %w", err)
@@ -243,30 +225,28 @@ func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, editorState st
 	return organized, nil
 }
 
-// HybridSearchExamples implements hybrid search (vector + BM25) for examples
+// hybrid search (vector + BM25) for strudel examples
 func (c *Client) HybridSearchExamples(ctx context.Context, userQuery, editorState string, topK int) ([]ExampleResult, error) {
-	// transform query to add technical keywords for vector search
 	searchQuery, err := c.llm.TransformQuery(ctx, userQuery)
 	if err != nil {
 		logger.Warn("query transformation failed, using original query", "error", err)
 		searchQuery = userQuery
 	}
 
-	// run vector and BM25 searches in parallel
 	searchK := topK + 5 // get extra results for better merging
 
 	var vectorResults, bm25Results []ExampleResult
 	var vectorErr, bm25Err error
 	var wg sync.WaitGroup
 
-	// vector search (70% weight) - uses transformed query for semantic matching
+	// vector search (70% weight)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		vectorResults, vectorErr = c.SearchExamples(ctx, searchQuery, searchK)
 	}()
 
-	// BM25 search (30% weight) - uses original query for exact keyword matching
+	// BM25 search (30% weight)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -275,18 +255,15 @@ func (c *Client) HybridSearchExamples(ctx context.Context, userQuery, editorStat
 
 	wg.Wait()
 
-	// check for errors
 	if vectorErr != nil {
 		return nil, fmt.Errorf("vector search failed: %w", vectorErr)
 	}
 
 	if bm25Err != nil {
-		// don't fail completely, just log and use vector only
 		logger.Warn("BM25 search failed, using vector only", "error", bm25Err)
 		bm25Results = []ExampleResult{}
 	}
 
-	// merge vector and BM25 results with weighted scoring (70% vector, 30% BM25)
 	merged := mergeVectorAndBM25Examples(vectorResults, bm25Results, topK)
 
 	return merged, nil

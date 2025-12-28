@@ -80,7 +80,6 @@ func (c *Client) InsertChunksBatch(ctx context.Context, chunks []chunker.Chunk, 
 		}
 	}
 
-	// must close batch results before committing, otherwise connection is still "busy"
 	if err := br.Close(); err != nil {
 		return fmt.Errorf("failed to close batch: %w", err)
 	}

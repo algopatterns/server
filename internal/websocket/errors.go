@@ -1,22 +1,8 @@
 package websocket
 
 import (
-	"errors"
 	"os"
 	"strings"
-)
-
-var (
-	ErrSessionNotFound         = errors.New("session not found")
-	ErrUnauthorized            = errors.New("unauthorized")
-	ErrInvalidMessage          = errors.New("invalid message format")
-	ErrClientNotFound          = errors.New("client not found")
-	ErrClientAlreadyRegistered = errors.New("client already registered")
-	ErrSessionFull             = errors.New("session is full")
-	ErrReadOnly                = errors.New("read-only access")
-	ErrConnectionClosed        = errors.New("connection closed")
-	ErrRateLimitExceeded       = errors.New("rate limit exceeded")
-	ErrCodeTooLarge            = errors.New("code too large")
 )
 
 // sanitizes error details for production

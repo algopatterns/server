@@ -5,12 +5,6 @@ import (
 	"os"
 )
 
-// holds common CLI flags for ingestion commands
-type Flags struct {
-	Path  string
-	Clear bool
-}
-
 // parses CLI flags for the docs subcommand
 func ParseDocsFlags() Flags {
 	args := os.Args[2:]
@@ -47,17 +41,17 @@ func ParseExamplesFlags() Flags {
 	return Flags{Path: *path, Clear: *clear}
 }
 
-// returns default flags for docs ingestion (used by "all" command)
+// returns default flags for docs ingestion
 func DefaultDocsFlags() Flags {
 	return Flags{Path: "./docs/strudel", Clear: false}
 }
 
-// returns default flags for concepts ingestion (used by "all" command)
+// returns default flags for concepts ingestion
 func DefaultConceptsFlags() Flags {
 	return Flags{Path: "./docs/concepts", Clear: false}
 }
 
-// returns default flags for examples ingestion (used by "all" command)
+// returns default flags for examples ingestion
 func DefaultExamplesFlags() Flags {
 	return Flags{Path: "./resources/strudel_examples.json", Clear: false}
 }

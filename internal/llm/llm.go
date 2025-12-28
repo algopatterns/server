@@ -5,14 +5,7 @@ import (
 	"fmt"
 )
 
-// combines a QueryTransformer, Embedder, and TextGenerator into a single LLM
-type CompositeLLM struct {
-	QueryTransformer
-	Embedder
-	TextGenerator
-}
-
-// creates a new LLM with auto-configuration from environment variables
+// creates a new LLM with config from environment variables
 func NewLLM(ctx context.Context) (LLM, error) {
 	config, err := loadConfig()
 
@@ -29,7 +22,6 @@ func NewLLMWithConfig(ctx context.Context, config *Config) (LLM, error) {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 
-	// create transformer based on provider (for query transformation)
 	var transformer QueryTransformer
 
 	switch config.TransformerProvider {
@@ -49,7 +41,6 @@ func NewLLMWithConfig(ctx context.Context, config *Config) (LLM, error) {
 		return nil, fmt.Errorf("unsupported transformer provider: %s", config.TransformerProvider)
 	}
 
-	// create generator based on provider (for code generation)
 	var textGenerator TextGenerator
 
 	switch config.GeneratorProvider {
@@ -69,7 +60,6 @@ func NewLLMWithConfig(ctx context.Context, config *Config) (LLM, error) {
 		return nil, fmt.Errorf("unsupported generator provider: %s", config.GeneratorProvider)
 	}
 
-	// create embedder based on provider
 	var embedder Embedder
 
 	switch config.EmbedderProvider {

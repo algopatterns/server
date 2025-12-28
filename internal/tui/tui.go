@@ -6,25 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type AppState int
-
-const (
-	StateWelcome AppState = iota
-	StateEditor
-	StateOutput
-	StateLoading
-)
-
-type Model struct {
-	state   AppState
-	mode    string
-	width   int
-	height  int
-	err     error
-	welcome *Welcome
-	editor  *EditorModel
-}
-
 // returns a new TUI application
 func NewApp(mode string) *Model {
 	return &Model{
@@ -116,9 +97,3 @@ func (m *Model) updateEditor(msg tea.Msg) (tea.Model, tea.Cmd) {
 func errorView(err error) string {
 	return fmt.Sprintf("\n  Error: %v\n\n  Press Ctrl+C to exit\n", err)
 }
-
-type ErrorMsg struct {
-	err error
-}
-
-type EnterEditorMsg struct{}

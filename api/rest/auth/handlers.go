@@ -29,7 +29,6 @@ func init() {
 	}
 }
 
-// starts the OAuth flow for a provider
 func BeginAuthHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		provider := c.Param("provider")
@@ -48,7 +47,6 @@ func BeginAuthHandler(userRepo *users.Repository) gin.HandlerFunc {
 	}
 }
 
-// handles OAuth callbacks
 func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		provider := c.Param("provider")
@@ -77,14 +75,12 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 			return
 		}
 
-		// generate JWT token
 		token, err := auth.GenerateJWT(user.ID, user.Email)
 		if err != nil {
 			errors.InternalError(c, "failed to generate token", err)
 			return
 		}
 
-		// return user + token
 		c.JSON(http.StatusOK, gin.H{
 			"user":  user,
 			"token": token,
@@ -92,7 +88,6 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 	}
 }
 
-// returns the current authenticated user
 func GetCurrentUserHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -112,7 +107,6 @@ func GetCurrentUserHandler(userRepo *users.Repository) gin.HandlerFunc {
 	}
 }
 
-// updates the current user's profile
 func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -141,7 +135,6 @@ func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 	}
 }
 
-// handles logout (client-side token deletion)
 func LogoutHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		gothic.Logout(c.Writer, c.Request)
@@ -149,7 +142,6 @@ func LogoutHandler() gin.HandlerFunc {
 	}
 }
 
-// checks if provider is supported
 func isValidProvider(provider string) bool {
 	validProviders := []string{"google", "github", "apple"}
 	return slices.Contains(validProviders, provider)

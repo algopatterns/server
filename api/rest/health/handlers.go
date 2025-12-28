@@ -6,14 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// response representing the health check
-type Response struct {
-	Status  string `json:"status"`
-	Service string `json:"service"`
-	Version string `json:"version,omitempty"`
-}
-
-// returns the server health status
 func Handler(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{
 		Status:  "healthy",
@@ -22,7 +14,6 @@ func Handler(c *gin.Context) {
 	})
 }
 
-// responds with pong for testing
 func PingHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "pong",

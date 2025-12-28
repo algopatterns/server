@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// registers all authentication routes
 func RegisterRoutes(router *gin.RouterGroup, userRepo *users.Repository) {
 	authGroup := router.Group("/auth")
 	{

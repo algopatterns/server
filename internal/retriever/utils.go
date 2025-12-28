@@ -15,16 +15,14 @@ const (
 	defaultTopK = 5
 )
 
-// organizeByPage groups chunks by page and fetches special sections
+// groups chunks by page and fetches special sections
 func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]SearchResult, error) {
-	// identify unique pages
 	pageSet := make(map[string]bool)
 
 	for _, chunk := range chunks {
 		pageSet[chunk.PageName] = true
 	}
 
-	// fetch special chunks for each page in parallel
 	specialChunks := make(map[string][]SearchResult)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -34,7 +32,6 @@ func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]S
 		go func(pName string) {
 			defer wg.Done()
 
-			// fetch PAGE_SUMMARY
 			summary, err := c.fetchSpecialChunk(ctx, pName, "PAGE_SUMMARY")
 
 			if err != nil {
@@ -48,7 +45,6 @@ func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]S
 				mu.Unlock()
 			}
 
-			// fetch PAGE_EXAMPLES (if < 500 chars)
 			examples, err := c.fetchSpecialChunk(ctx, pName, "PAGE_EXAMPLES")
 
 			if err != nil {
@@ -66,7 +62,6 @@ func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]S
 
 	wg.Wait()
 
-	// organize by page: track page order, categorize chunks
 	pageOrder := []string{}
 	pageSummaries := make(map[string]SearchResult)
 	pageExamples := make(map[string]SearchResult)
@@ -74,7 +69,7 @@ func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]S
 
 	for _, chunk := range chunks {
 		// track page order
-		if !contains(pageOrder, chunk.PageName) {
+		if !slices.Contains(pageOrder, chunk.PageName) {
 			pageOrder = append(pageOrder, chunk.PageName)
 		}
 
@@ -103,18 +98,17 @@ func (c *Client) organizeByPage(ctx context.Context, chunks []SearchResult) ([]S
 		}
 	}
 
-	// build result: summary → examples → sections per page
+	// build result: summary - examples - sections per page
 	result := []SearchResult{}
 	for _, pageName := range pageOrder {
-		// add summary first (if exists)
 		if summary, ok := pageSummaries[pageName]; ok {
 			result = append(result, summary)
 		}
-		// add examples second (if exists)
+
 		if examples, ok := pageExamples[pageName]; ok {
 			result = append(result, examples)
 		}
-		// then add sections
+
 		if sections, ok := pageSections[pageName]; ok {
 			result = append(result, sections...)
 		}
@@ -136,25 +130,23 @@ func (c *Client) fetchSpecialChunk(ctx context.Context, pageName, sectionTitle s
 	)
 
 	if err != nil {
-		// no rows is not an error, just means the special chunk doesn't exist
 		if err.Error() == "no rows in result set" {
 			return nil, nil
 		}
+
 		return nil, fmt.Errorf("failed to fetch special chunk: %w", err)
 	}
 
 	return &result, nil
 }
 
-// extractEditorKeywords parses editor state for contextual keywords
-// Uses the shared strudel package for consistent parsing
+// parses editor state for contextual keywords
 func extractEditorKeywords(editorState string) string {
 	return strudel.ExtractKeywords(editorState)
 }
 
-// mergeAndRankDocs merges and deduplicates doc search results, ranking by similarity
+// merges and deduplicates doc search results, ranking by similarity
 func mergeAndRankDocs(primary, contextual []SearchResult, topK int) []SearchResult {
-	// deduplicate by chunk ID
 	seen := make(map[string]bool)
 	merged := []SearchResult{}
 
@@ -165,12 +157,10 @@ func mergeAndRankDocs(primary, contextual []SearchResult, topK int) []SearchResu
 		}
 	}
 
-	// sort by similarity score (higher is better)
 	sort.Slice(merged, func(i, j int) bool {
 		return merged[i].Similarity > merged[j].Similarity
 	})
 
-	// return top K
 	if len(merged) > topK {
 		return merged[:topK]
 	}
@@ -178,9 +168,8 @@ func mergeAndRankDocs(primary, contextual []SearchResult, topK int) []SearchResu
 	return merged
 }
 
-// mergeAndRankExamples merges and deduplicates example search results, ranking by similarity
+// merges and deduplicates example search results, ranking by similarity
 func mergeAndRankExamples(primary, contextual []ExampleResult, topK int) []ExampleResult {
-	// deduplicate by example ID
 	seen := make(map[string]bool)
 	merged := []ExampleResult{}
 
@@ -191,37 +180,31 @@ func mergeAndRankExamples(primary, contextual []ExampleResult, topK int) []Examp
 		}
 	}
 
-	// sort by similarity score (higher is better)
 	sort.Slice(merged, func(i, j int) bool {
 		return merged[i].Similarity > merged[j].Similarity
 	})
 
-	// return top K
 	if len(merged) > topK {
 		return merged[:topK]
 	}
 	return merged
 }
 
-// mergeVectorAndBM25Docs combines vector and BM25 search results with weighted scoring
-// Vector results get 70% weight, BM25 results get 30% weight (following Cursor's approach)
+// combines vector and BM25 search results with weighted scoring
 func mergeVectorAndBM25Docs(vectorResults, bm25Results []SearchResult, topK int) []SearchResult {
 	const (
 		vectorWeight = 0.7
 		bm25Weight   = 0.3
 	)
 
-	// create a map to track combined scores by chunk ID
 	scoreMap := make(map[string]float32)
 	chunkMap := make(map[string]SearchResult)
 
-	// add vector results with 70% weight
 	for _, chunk := range vectorResults {
 		scoreMap[chunk.ID] = chunk.Similarity * vectorWeight
 		chunkMap[chunk.ID] = chunk
 	}
 
-	// add BM25 results with 30% weight, combining scores if already present
 	for _, chunk := range bm25Results {
 		weightedScore := chunk.Similarity * bm25Weight
 		if existingScore, exists := scoreMap[chunk.ID]; exists {
@@ -232,19 +215,16 @@ func mergeVectorAndBM25Docs(vectorResults, bm25Results []SearchResult, topK int)
 		}
 	}
 
-	// build result list with combined scores
 	merged := make([]SearchResult, 0, len(chunkMap))
 	for id, chunk := range chunkMap {
 		chunk.Similarity = scoreMap[id]
 		merged = append(merged, chunk)
 	}
 
-	// sort by combined score (higher is better)
 	sort.Slice(merged, func(i, j int) bool {
 		return merged[i].Similarity > merged[j].Similarity
 	})
 
-	// return top K
 	if len(merged) > topK {
 		return merged[:topK]
 	}
@@ -252,15 +232,13 @@ func mergeVectorAndBM25Docs(vectorResults, bm25Results []SearchResult, topK int)
 	return merged
 }
 
-// mergeVectorAndBM25Examples combines vector and BM25 search results with weighted scoring
-// Vector results get 70% weight, BM25 results get 30% weight (following Cursor's approach)
+// combines vector and BM25 search results with weighted scoring
 func mergeVectorAndBM25Examples(vectorResults, bm25Results []ExampleResult, topK int) []ExampleResult {
 	const (
 		vectorWeight = 0.7
 		bm25Weight   = 0.3
 	)
 
-	// create a map to track combined scores by example ID
 	scoreMap := make(map[string]float32)
 	exampleMap := make(map[string]ExampleResult)
 
@@ -288,7 +266,7 @@ func mergeVectorAndBM25Examples(vectorResults, bm25Results []ExampleResult, topK
 		merged = append(merged, example)
 	}
 
-	// sort by combined score (higher is better)
+	// sort by combined score
 	sort.Slice(merged, func(i, j int) bool {
 		return merged[i].Similarity > merged[j].Similarity
 	})
@@ -299,9 +277,4 @@ func mergeVectorAndBM25Examples(vectorResults, bm25Results []ExampleResult, topK
 	}
 
 	return merged
-}
-
-// contains checks if a string slice contains a string
-func contains(slice []string, str string) bool {
-	return slices.Contains(slice, str)
 }

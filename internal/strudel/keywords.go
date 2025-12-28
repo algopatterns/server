@@ -2,16 +2,6 @@ package strudel
 
 import "strings"
 
-// configures keyword extraction behavior
-type KeywordOptions struct {
-	MaxKeywords      int  // limit total keywords (default: 10)
-	IncludeSounds    bool // include sound names (default: true)
-	IncludeNotes     bool // include note names (default: true)
-	IncludeFunctions bool // include function names (default: true)
-	IncludeScales    bool // include scale names (default: true)
-	Deduplicate      bool // remove duplicates (default: true)
-}
-
 // returns sensible defaults for keyword extraction
 func DefaultKeywordOptions() KeywordOptions {
 	return KeywordOptions{
@@ -24,13 +14,10 @@ func DefaultKeywordOptions() KeywordOptions {
 	}
 }
 
-// extracts keywords with default options
-// returns a space-separated keyword string suitable for search queries
 func ExtractKeywords(code string) string {
 	return ExtractKeywordsWithOptions(code, DefaultKeywordOptions())
 }
 
-// extracts keywords with custom options
 func ExtractKeywordsWithOptions(code string, opts KeywordOptions) string {
 	if code == "" {
 		return ""
@@ -38,10 +25,8 @@ func ExtractKeywordsWithOptions(code string, opts KeywordOptions) string {
 
 	keywords := []string{}
 
-	// parse code once
 	parsed := Parse(code)
 
-	// collect keywords based on options
 	if opts.IncludeSounds {
 		keywords = append(keywords, parsed.Sounds...)
 	}
@@ -58,12 +43,10 @@ func ExtractKeywordsWithOptions(code string, opts KeywordOptions) string {
 		keywords = append(keywords, parsed.Scales...)
 	}
 
-	// deduplicate if requested
 	if opts.Deduplicate {
 		keywords = UniqueStrings(keywords)
 	}
 
-	// limit to max keywords
 	if opts.MaxKeywords > 0 && len(keywords) > opts.MaxKeywords {
 		keywords = keywords[:opts.MaxKeywords]
 	}

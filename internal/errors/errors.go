@@ -100,7 +100,7 @@ func ValidationError(c *gin.Context, err error) {
 
 	if err != nil {
 		details = sanitizeError(err)
-		// try to extract a more specific message from validation errors
+		// extract a more specific message from validation errors if available
 		if strings.Contains(err.Error(), "binding") || strings.Contains(err.Error(), "validation") {
 			message = "request validation failed"
 		}

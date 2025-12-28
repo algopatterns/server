@@ -2,78 +2,11 @@ package websocket
 
 import (
 	"encoding/json"
-	"sync"
 	"time"
 
 	"github.com/algorave/server/internal/logger"
 	"github.com/gorilla/websocket"
 )
-
-const (
-	// time allowed to write a message to the peer
-	writeWait = 10 * time.Second
-
-	// time allowed to read the next pong message from the peer
-	pongWait = 60 * time.Second
-
-	// send pings to peer with this period (must be less than pongWait)
-	pingPeriod = (pongWait * 9) / 10
-
-	// maximum message size allowed from peer
-	maxMessageSize = 512 * 1024 // 512 KB
-
-	// rate limiting constants
-	maxCodeUpdatesPerSecond   = 10 // maximum code updates per second
-	maxAgentRequestsPerMinute = 5  // maximum agent requests per minute
-
-	// content size limits
-	maxCodeSize = 100 * 1024 // 100 KB maximum code size
-)
-
-// represents a WebSocket client connection
-type Client struct {
-	// unique identifier for this client
-	ID string
-
-	// session ID this client is connected to
-	SessionID string
-
-	// user ID (empty for anonymous users)
-	UserID string
-
-	// display name for this client
-	DisplayName string
-
-	// role in the session (host, co-author, viewer)
-	Role string
-
-	// whether this client has an authenticated user account
-	IsAuthenticated bool
-
-	// IP address of the client (for connection tracking)
-	IPAddress string
-
-	// webSocket connection
-	conn *websocket.Conn
-
-	// hub reference for message broadcasting
-	hub *Hub
-
-	// buffered channel of outbound messages
-	send chan []byte
-
-	// mutex for thread-safe operations
-	mu sync.RWMutex
-
-	// flag indicating if client is closed
-	closed bool
-
-	// rate limiting: code update timestamps (sliding window)
-	codeUpdateTimestamps []time.Time
-
-	// rate limiting: agent request timestamps (sliding window)
-	agentRequestTimestamps []time.Time
-}
 
 // creates a new webSocket client connection
 func NewClient(id, sessionID, userID, displayName, role, ipAddress string, isAuthenticated bool, conn *websocket.Conn, hub *Hub) *Client {
@@ -91,6 +24,7 @@ func NewClient(id, sessionID, userID, displayName, role, ipAddress string, isAut
 		closed:                 false,
 		codeUpdateTimestamps:   make([]time.Time, 0, maxCodeUpdatesPerSecond),
 		agentRequestTimestamps: make([]time.Time, 0, maxAgentRequestsPerMinute),
+		chatMessageTimestamps: make([]time.Time, 0, maxChatMessagesPerMinute),
 	}
 }
 
@@ -330,5 +264,33 @@ func (c *Client) checkAgentRequestRateLimit() bool {
 
 	// add current timestamp
 	c.agentRequestTimestamps = append(c.agentRequestTimestamps, now)
+	return true
+}
+
+// checks if the client can send a chat message
+func (c *Client) checkChatRateLimit() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+	oneMinuteAgo := now.Add(-1 * time.Minute)
+
+	// remove timestamps older than 1 minute
+	validTimestamps := make([]time.Time, 0, maxChatMessagesPerMinute)
+	for _, ts := range c.chatMessageTimestamps {
+		if ts.After(oneMinuteAgo) {
+			validTimestamps = append(validTimestamps, ts)
+		}
+	}
+
+	c.chatMessageTimestamps = validTimestamps
+
+	// check if we've exceeded the limit
+	if len(c.chatMessageTimestamps) >= maxChatMessagesPerMinute {
+		return false
+	}
+
+	// add current timestamp
+	c.chatMessageTimestamps = append(c.chatMessageTimestamps, now)
 	return true
 }

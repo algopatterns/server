@@ -7,7 +7,6 @@ import (
 	"github.com/algorave/server/internal/auth"
 )
 
-// registers all collaboration/session routes
 func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository) {
 	// session management (authenticated)
 	router.POST("/sessions", auth.AuthMiddleware(), CreateSessionHandler(sessionRepo))

@@ -1,0 +1,233 @@
+package websocket
+
+import (
+	"encoding/json"
+	"errors"
+	"sync"
+	"time"
+
+	"github.com/gorilla/websocket"
+)
+
+// Message type constants for WebSocket communication
+const (
+	// is sent when a user updates the code
+	TypeCodeUpdate = "code_update"
+
+	// is sent when a new user joins the session
+	TypeUserJoined = "user_joined"
+
+	// is sent when a user leaves the session
+	TypeUserLeft = "user_left"
+
+	// is sent when a user requests code generation
+	TypeAgentRequest = "agent_request"
+
+	// is sent when the agent completes code generation
+	TypeAgentResponse = "agent_response"
+
+	// is sent when a user sends a chat message
+	TypeChatMessage = "chat_message"
+
+	// is sent when an error occurs
+	TypeError = "error"
+
+	// is sent by clients to keep the connection alive
+	TypePing = "ping"
+
+	// is sent by server in response to ping
+	TypePong = "pong"
+)
+
+// Client connection constants
+const (
+	// time allowed to write a message to the peer
+	writeWait = 10 * time.Second
+
+	// time allowed to read the next pong message from the peer
+	pongWait = 60 * time.Second
+
+	// send pings to peer with this period (must be less than pongWait)
+	pingPeriod = (pongWait * 9) / 10
+
+	// maximum message size allowed from peer
+	maxMessageSize = 512 * 1024 // 512 KB
+
+	// rate limiting constants
+	maxCodeUpdatesPerSecond   = 10 // maximum code updates per second
+	maxAgentRequestsPerMinute = 5  // maximum agent requests per minute
+	maxChatMessagesPerMinute  = 30 // maximum chat messages per minute
+
+	// content size limits
+	maxCodeSize        = 100 * 1024 // 100 KB maximum code size
+	maxChatMessageSize = 5000       // 5000 characters maximum chat message size
+)
+
+// Hub connection limit constants
+const (
+	maxConnectionsPerUser = 5
+	maxConnectionsPerIP   = 10
+)
+
+// Errors
+var (
+	ErrSessionNotFound         = errors.New("session not found")
+	ErrUnauthorized            = errors.New("unauthorized")
+	ErrInvalidMessage          = errors.New("invalid message format")
+	ErrClientNotFound          = errors.New("client not found")
+	ErrClientAlreadyRegistered = errors.New("client already registered")
+	ErrSessionFull             = errors.New("session is full")
+	ErrReadOnly                = errors.New("read-only access")
+	ErrConnectionClosed        = errors.New("connection closed")
+	ErrRateLimitExceeded       = errors.New("rate limit exceeded")
+	ErrCodeTooLarge            = errors.New("code too large")
+)
+
+// Message represents a websocket message with typed payload
+type Message struct {
+	Type      string          `json:"type"`
+	SessionID string          `json:"session_id"`
+	ClientID  string          `json:"-"` // Internal only, not sent to clients
+	UserID    string          `json:"user_id,omitempty"`
+	Timestamp time.Time       `json:"timestamp"`
+	Payload   json.RawMessage `json:"payload"`
+}
+
+// CodeUpdatePayload contains code update information
+type CodeUpdatePayload struct {
+	Code        string `json:"code"`
+	CursorLine  int    `json:"cursor_line,omitempty"`
+	CursorCol   int    `json:"cursor_col,omitempty"`
+	DisplayName string `json:"display_name,omitempty"`
+}
+
+// UserJoinedPayload contains information about a newly joined user
+type UserJoinedPayload struct {
+	UserID      string `json:"user_id,omitempty"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"` // "host", "co-author", "viewer"
+}
+
+// UserLeftPayload contains information about a user who left
+type UserLeftPayload struct {
+	UserID      string `json:"user_id,omitempty"`
+	DisplayName string `json:"display_name"`
+}
+
+// AgentRequestPayload contains a code generation request
+type AgentRequestPayload struct {
+	UserQuery           string `json:"user_query"`
+	EditorState         string `json:"editor_state,omitempty"` // Private, not broadcasted
+	ConversationHistory []struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	} `json:"conversation_history,omitempty"` // Private, not broadcasted
+	DisplayName string `json:"display_name,omitempty"` // Added by server for broadcasting
+}
+
+// AgentResponsePayload contains the agent's code generation response
+type AgentResponsePayload struct {
+	Code                string   `json:"code,omitempty"`
+	DocsRetrieved       int      `json:"docs_retrieved"`
+	ExamplesRetrieved   int      `json:"examples_retrieved"`
+	Model               string   `json:"model"`
+	IsActionable        bool     `json:"is_actionable"`
+	ClarifyingQuestions []string `json:"clarifying_questions,omitempty"`
+}
+
+// ChatMessagePayload contains a chat message from a user
+type ChatMessagePayload struct {
+	Message     string `json:"message"`
+	DisplayName string `json:"display_name,omitempty"`
+}
+
+// ErrorPayload contains error information (flattened to match REST API format)
+type ErrorPayload struct {
+	Error   string `json:"error"`             // error code (lowercase_snake_case, matches REST API)
+	Message string `json:"message"`           // user-friendly message
+	Details string `json:"details,omitempty"` // optional details (sanitized in production)
+}
+
+// Client represents a WebSocket client connection
+type Client struct {
+	// unique identifier for this client
+	ID string
+
+	// session ID this client is connected to
+	SessionID string
+
+	// user ID (empty for anonymous users)
+	UserID string
+
+	// display name for this client
+	DisplayName string
+
+	// role in the session (host, co-author, viewer)
+	Role string
+
+	// whether this client has an authenticated user account
+	IsAuthenticated bool
+
+	// IP address of the client (for connection tracking)
+	IPAddress string
+
+	// webSocket connection
+	conn *websocket.Conn
+
+	// hub reference for message broadcasting
+	hub *Hub
+
+	// buffered channel of outbound messages
+	send chan []byte
+
+	// mutex for thread-safe operations
+	mu sync.RWMutex
+
+	// flag indicating if client is closed
+	closed bool
+
+	// rate limiting: code update timestamps (sliding window)
+	codeUpdateTimestamps []time.Time
+
+	// rate limiting: agent request timestamps (sliding window)
+	agentRequestTimestamps []time.Time
+
+	// rate limiting: chat message timestamps (sliding window)
+	chatMessageTimestamps []time.Time
+}
+
+// Hub maintains the set of active clients and broadcasts messages to sessions
+type Hub struct {
+	// registered clients by session ID and client ID
+	sessions map[string]map[string]*Client
+
+	// register requests from clients
+	Register chan *Client
+
+	// unregister requests from clients
+	Unregister chan *Client
+
+	// broadcast messages to all clients in a session
+	Broadcast chan *Message
+
+	// mutex for thread-safe access to sessions
+	mu sync.RWMutex
+
+	// message handlers for different message types
+	handlers map[string]MessageHandler
+
+	// flag indicating if hub is running
+	running bool
+
+	// channel to signal shutdown
+	shutdown chan struct{}
+
+	// connection tracking: user ID -> count of connections
+	userConnections map[string]int
+
+	// connection tracking: IP address -> count of connections
+	ipConnections map[string]int
+}
+
+// MessageHandler processes a specific message type
+type MessageHandler func(hub *Hub, client *Client, msg *Message) error

@@ -16,7 +16,6 @@ type StrudelGetter interface {
 	Get(ctx context.Context, strudelID, userID string) (*strudels.Strudel, error)
 }
 
-// creates a handler for code generation
 func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *sessions.Manager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req Request
@@ -26,15 +25,12 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 			return
 		}
 
-		// check if user is authenticated
 		userID, isAuthenticated := c.Get("user_id")
 
-		// use conversation history from request by default
 		conversationHistory := req.ConversationHistory
 		editorState := req.EditorState
 		sessionID := req.SessionID
 
-		// validate optional UUIDs if provided
 		if !errors.ValidateUUID(c, req.StrudelID, "strudel") {
 			return
 		}
@@ -59,7 +55,6 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 		} else if !isAuthenticated {
 			// priority 2: for anonymous users, check for session
 			if req.SessionID != "" {
-				// try to load existing session
 				session, exists := sessionMgr.GetSession(req.SessionID)
 
 				if exists {
@@ -76,7 +71,7 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 					}
 				}
 			} else {
-				// no session_id provided, create new session
+				// create new session if no session_id provided
 				newSession, err := sessionMgr.CreateSession()
 				if err != nil {
 					logger.ErrorErr(err, "failed to create session")
@@ -99,7 +94,6 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 
 		// update session for anonymous users
 		if !isAuthenticated && sessionID != "" {
-			// append new conversation turn
 			updatedHistory := append(conversationHistory,
 				agent.Message{Role: "user", Content: req.UserQuery},
 				agent.Message{Role: "assistant", Content: resp.Code},
@@ -120,7 +114,7 @@ func Handler(agentClient *agent.Agent, strudelRepo StrudelGetter, sessionMgr *se
 			Model:               resp.Model,
 			IsActionable:        resp.IsActionable,
 			ClarifyingQuestions: resp.ClarifyingQuestions,
-			SessionID:           sessionID, // return session ID when available (required for anonymous users, optional for authenticated)
+			SessionID:           sessionID,
 		})
 	}
 }

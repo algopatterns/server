@@ -8,14 +8,13 @@ import (
 	"github.com/algorave/server/internal/config"
 )
 
-// loads LLM configuration from environment variables
 func loadConfig() (*Config, error) {
 	baseConfig, err := config.LoadEnvironmentVariables()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load base config: %w", err)
 	}
 
-	// transformer configuration (for query transformation)
+	// transformer config
 	transformerProvider := Provider(os.Getenv("TRANSFORMER_PROVIDER"))
 	if transformerProvider == "" {
 		transformerProvider = ProviderAnthropic // default
@@ -28,7 +27,7 @@ func loadConfig() (*Config, error) {
 		transformerModel = "claude-3-haiku-20240307" // default
 	}
 
-	// generator configuration (for code generation)
+	// generator config
 	generatorProvider := Provider(os.Getenv("GENERATOR_PROVIDER"))
 	if generatorProvider == "" {
 		generatorProvider = ProviderAnthropic // default
@@ -41,7 +40,7 @@ func loadConfig() (*Config, error) {
 		generatorModel = "claude-sonnet-4-20250514" // default
 	}
 
-	// embedder configuration
+	// embedder config
 	embedderProvider := Provider(os.Getenv("EMBEDDER_PROVIDER"))
 	if embedderProvider == "" {
 		embedderProvider = ProviderOpenAI // default
@@ -55,7 +54,7 @@ func loadConfig() (*Config, error) {
 		embedderModel = "text-embedding-3-small" // default
 	}
 
-	// transformer optional parameters
+	// optional transformer parameters
 	transformerMaxTokens := 200 // default
 	if maxTokensStr := os.Getenv("TRANSFORMER_MAX_TOKENS"); maxTokensStr != "" {
 		if val, err := strconv.Atoi(maxTokensStr); err == nil {
@@ -70,7 +69,7 @@ func loadConfig() (*Config, error) {
 		}
 	}
 
-	// generator optional parameters
+	// optional generator parameters
 	generatorMaxTokens := 4096 // default
 	if maxTokensStr := os.Getenv("GENERATOR_MAX_TOKENS"); maxTokensStr != "" {
 		if val, err := strconv.Atoi(maxTokensStr); err == nil {

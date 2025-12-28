@@ -1,51 +1,8 @@
 package websocket
 
 import (
-	"sync"
-
 	"github.com/algorave/server/internal/logger"
 )
-
-const (
-	maxConnectionsPerUser = 5
-	maxConnectionsPerIP   = 10
-)
-
-// maintains the set of active clients and broadcasts messages to sessions
-type Hub struct {
-	// registered clients by session ID and client ID
-	sessions map[string]map[string]*Client
-
-	// register requests from clients
-	Register chan *Client
-
-	// unregister requests from clients
-	Unregister chan *Client
-
-	// broadcast messages to all clients in a session
-	Broadcast chan *Message
-
-	// mutex for thread-safe access to sessions
-	mu sync.RWMutex
-
-	// message handlers for different message types
-	handlers map[string]MessageHandler
-
-	// flag indicating if hub is running
-	running bool
-
-	// channel to signal shutdown
-	shutdown chan struct{}
-
-	// connection tracking: user ID -> count of connections
-	userConnections map[string]int
-
-	// connection tracking: IP address -> count of connections
-	ipConnections map[string]int
-}
-
-// processes a specific message type
-type MessageHandler func(hub *Hub, client *Client, msg *Message) error
 
 func NewHub() *Hub {
 	return &Hub{

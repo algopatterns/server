@@ -5,14 +5,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Client performs vector similarity search on documentation and examples
+// client performs vector similarity search on documentation and examples
 type Client struct {
 	db   *pgxpool.Pool
 	llm  llm.LLM
 	topK int
 }
 
-// SearchResult represents a document chunk from vector search
+// represents a document chunk from vector search
 type SearchResult struct {
 	ID           string
 	PageName     string
@@ -23,7 +23,7 @@ type SearchResult struct {
 	Metadata     map[string]interface{}
 }
 
-// ExampleResult represents an example Strudel from vector search
+// represents an example Strudel from vector search
 type ExampleResult struct {
 	ID          string
 	Title       string

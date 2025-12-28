@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// creates a new strudel for the authenticated user
 func CreateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -35,7 +34,6 @@ func CreateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// lists all strudels for the authenticated user
 func ListStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -54,7 +52,6 @@ func ListStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// gets a single strudel by ID
 func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -78,7 +75,6 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// updates a strudel
 func UpdateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -109,7 +105,6 @@ func UpdateStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// deletes a strudel
 func DeleteStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := auth.GetUserID(c)
@@ -133,7 +128,6 @@ func DeleteStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	}
 }
 
-// lists public strudels (no auth required)
 func ListPublicStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit := 50
@@ -157,5 +151,6 @@ func ListPublicStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc
 func parseInt(s string) (int, error) {
 	var i int
 	_, err := fmt.Sscanf(s, "%d", &i)
+
 	return i, err
 }

@@ -20,21 +20,18 @@ const (
 	defaultTemperature   = 0.3
 )
 
-// shared HTTP client with proper timeouts and connection pooling
-// reused across all Anthropic API calls to prevent connection exhaustion
+// shared HTTP client for Anthropic API calls
 var anthropicHTTPClient = &http.Client{
-	Timeout: 60 * time.Second, // total request timeout (includes response body read)
+	Timeout: 60 * time.Second,
 	Transport: &http.Transport{
-		MaxIdleConns:        100,              // total idle connections across all hosts
-		MaxIdleConnsPerHost: 10,               // idle connections per host
-		IdleConnTimeout:     90 * time.Second, // how long idle connections stay alive
-		TLSHandshakeTimeout: 10 * time.Second, // TLS handshake timeout
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
 	},
 }
 
-// rate limiter for Anthropic API calls
-// limits to 50 requests/second with burst capacity of 10
-// prevents hitting Anthropic's rate limits and potential API key throttling
+// rate limiter for Anthropic API calls (50 requests/second with burst capacity of 10)
 var anthropicRateLimiter = rate.NewLimiter(50, 10)
 
 type transformRequest struct {
@@ -92,7 +89,7 @@ func (t *AnthropicTransformer) Model() string {
 	return t.config.Model
 }
 
-// AnalyzeQuery analyzes the user query and returns structured actionability data
+// analyzes the user query and returns structured actionability data
 func (t *AnthropicTransformer) AnalyzeQuery(ctx context.Context, userQuery string) (*QueryAnalysis, error) {
 	reqBody := transformRequest{
 		Model:       t.config.Model,
@@ -120,7 +117,7 @@ func (t *AnthropicTransformer) AnalyzeQuery(ctx context.Context, userQuery strin
 	req.Header.Set("x-api-key", t.config.APIKey)
 	req.Header.Set("anthropic-version", anthropicVersion)
 
-	// apply rate limiting before making the request
+	// rate limiting
 	if err := anthropicRateLimiter.Wait(ctx); err != nil {
 		return nil, fmt.Errorf("rate limiter error: %w", err)
 	}
@@ -146,11 +143,9 @@ func (t *AnthropicTransformer) AnalyzeQuery(ctx context.Context, userQuery strin
 		return nil, fmt.Errorf("no content in response")
 	}
 
-	// extract the JSON response text
 	responseText := strings.TrimSpace(transformResp.Content[0].Text)
-
-	// parse the JSON response
 	var analysis QueryAnalysis
+
 	if err := json.Unmarshal([]byte(responseText), &analysis); err != nil {
 		return nil, fmt.Errorf("failed to parse query analysis JSON: %w", err)
 	}
@@ -158,7 +153,7 @@ func (t *AnthropicTransformer) AnalyzeQuery(ctx context.Context, userQuery strin
 	return &analysis, nil
 }
 
-// TransformQuery transforms the user query for vector search (backward compatible)
+// transforms the user query for vector search (backward compatible)
 func (t *AnthropicTransformer) TransformQuery(ctx context.Context, userQuery string) (string, error) {
 	analysis, err := t.AnalyzeQuery(ctx, userQuery)
 	if err != nil {
@@ -217,7 +212,7 @@ func (t *AnthropicTransformer) GenerateText(ctx context.Context, req TextGenerat
 	httpReq.Header.Set("x-api-key", t.config.APIKey)
 	httpReq.Header.Set("anthropic-version", anthropicVersion)
 
-	// apply rate limiting before making the request
+	// rate limiting
 	if err := anthropicRateLimiter.Wait(ctx); err != nil {
 		return "", fmt.Errorf("rate limiter error: %w", err)
 	}
@@ -246,7 +241,7 @@ func (t *AnthropicTransformer) GenerateText(ctx context.Context, req TextGenerat
 	return strings.TrimSpace(apiResp.Content[0].Text), nil
 }
 
-// returns the system prompt for query transformation
+// returns system prompt for query transformation
 func buildTransformationPrompt() string {
 	const prompt = `You are a query analyzer for Strudel music code generation.
 

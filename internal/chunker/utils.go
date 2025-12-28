@@ -37,7 +37,7 @@ func splitByHeaders(content string) []Section {
 		} else if currentSection != nil {
 			currentSection.Content += line + "\n"
 		} else {
-			// content before any header - create an untitled section
+			// content before any header (default to an untitled section)
 			currentSection = &Section{
 				Title:   "",
 				Level:   0,

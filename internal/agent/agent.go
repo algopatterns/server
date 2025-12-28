@@ -66,11 +66,9 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 	}, nil
 }
 
-// makes the actual API call using the TextGenerator
 func (a *Agent) callGenerator(ctx context.Context, systemPrompt, userQuery string, history []Message) (string, error) {
 	llmMessages := make([]llm.Message, 0, len(history)+1)
 
-	// add conversation history
 	for _, msg := range history {
 		llmMessages = append(llmMessages, llm.Message{
 			Role:    msg.Role,
@@ -78,7 +76,6 @@ func (a *Agent) callGenerator(ctx context.Context, systemPrompt, userQuery strin
 		})
 	}
 
-	// add current user query
 	llmMessages = append(llmMessages, llm.Message{
 		Role:    "user",
 		Content: userQuery,

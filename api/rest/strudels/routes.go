@@ -6,9 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// registers all strudel routes
 func RegisterRoutes(router *gin.RouterGroup, strudelRepo *strudels.Repository) {
-	// strudel routes (require authentication)
 	strudelsGroup := router.Group("/strudels")
 	strudelsGroup.Use(auth.AuthMiddleware())
 	{

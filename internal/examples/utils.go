@@ -9,17 +9,14 @@ import (
 	"github.com/algorave/server/internal/strudel"
 )
 
-// extractTags analyzes Strudel code and extracts relevant tags
-// Tags help with semantic search and categorization
-// Uses the shared strudel package for consistent analysis
+// analyzes strudel code and extracts relevant tags
 func extractTags(code string, category string, existingTags []string) []string {
 	analysis := strudel.AnalyzeCode(code)
 	return strudel.GenerateTags(analysis, category, existingTags)
 }
 
-// generate description creates a basic description if none exists
+// generates a basic description if none exists
 func generateDescription(category string, tags []string) string {
-	// build description from available metadata
 	parts := []string{}
 
 	if category != "" {
@@ -28,7 +25,6 @@ func generateDescription(category string, tags []string) string {
 		parts = append(parts, "A Strudel pattern")
 	}
 
-	// add key features based on tags
 	features := []string{}
 
 	for _, tag := range tags {
@@ -78,7 +74,6 @@ func LoadExamplesFromJSON(filePath string) ([]RawExample, error) {
 		return nil, fmt.Errorf("failed to read examples file: %w", err)
 	}
 
-	// parse JSON
 	var rawExamples []RawExample
 	if err := json.Unmarshal(data, &rawExamples); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)

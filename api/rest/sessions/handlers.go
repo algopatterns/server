@@ -13,7 +13,6 @@ import (
 // transfers an anonymous session to an authenticated user's account
 func TransferSessionHandler(sessionMgr *sessions.Manager, strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// check if user is authenticated
 		userID, exists := auth.GetUserID(c)
 		if !exists {
 			errors.Unauthorized(c, "")
@@ -26,7 +25,6 @@ func TransferSessionHandler(sessionMgr *sessions.Manager, strudelRepo *strudels.
 			return
 		}
 
-		// get the session
 		session, exists := sessionMgr.GetSession(req.SessionID)
 		if !exists {
 			errors.NotFound(c, "session")

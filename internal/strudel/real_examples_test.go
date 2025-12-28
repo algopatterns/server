@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// tests the strudel package with actual examples from Strudel docs
+// tests the strudel package with actual examples from strudel docs
 func TestRealWorldExamples(t *testing.T) {
 	tests := []struct {
 		name            string

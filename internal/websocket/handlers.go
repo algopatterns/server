@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"strings"
 
 	"github.com/algorave/server/algorave/sessions"
 	"github.com/algorave/server/internal/agent"
@@ -136,7 +137,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 
 		// save messages to session history
 		if payload.UserQuery != "" {
-			_, err := sessionRepo.AddMessage(ctx, client.SessionID, client.UserID, "user", payload.UserQuery)
+			_, err := sessionRepo.AddMessage(ctx, client.SessionID, client.UserID, "user", sessions.MessageTypeUserPrompt, payload.UserQuery)
 			if err != nil {
 				logger.ErrorErr(err, "failed to save user message",
 					"client_id", client.ID,
@@ -146,7 +147,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		}
 
 		if response.Code != "" {
-			_, err := sessionRepo.AddMessage(ctx, client.SessionID, "", "assistant", response.Code)
+			_, err := sessionRepo.AddMessage(ctx, client.SessionID, "", "assistant", sessions.MessageTypeAIResponse, response.Code)
 			if err != nil {
 				logger.ErrorErr(err, "failed to save assistant message",
 					"client_id", client.ID,
@@ -203,6 +204,88 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 			"model", response.Model,
 			"docs_retrieved", response.DocsRetrieved,
 			"examples_retrieved", response.ExamplesRetrieved,
+		)
+
+		return nil
+	}
+}
+
+// handles chat message messages
+func ChatHandler(sessionRepo sessions.Repository) MessageHandler {
+	return func(hub *Hub, client *Client, msg *Message) error {
+		// check rate limit
+		if !client.checkChatRateLimit() {
+			client.SendError("too_many_requests", "too many chat messages. maximum 30 per minute.", "")
+			return ErrRateLimitExceeded
+		}
+
+		// parse payload
+		var payload ChatMessagePayload
+
+		if err := msg.UnmarshalPayload(&payload); err != nil {
+			client.SendError("validation_error", "failed to parse chat message", err.Error())
+			return err
+		}
+
+		// validate message size
+		messageSize := len([]rune(payload.Message))
+
+		if messageSize > maxChatMessageSize {
+			client.SendError("bad_request", "message exceeds maximum size. maximum 5000 characters allowed.", "")
+			return ErrCodeTooLarge
+		}
+
+		// validate message is not empty (after trimming whitespace)
+		trimmedMessage := strings.TrimSpace(payload.Message)
+
+		if trimmedMessage == "" {
+			client.SendError("bad_request", "message cannot be empty", "")
+			return ErrCodeTooLarge
+		}
+
+		// save to database
+		ctx := context.Background()
+
+		_, err := sessionRepo.AddMessage(ctx, client.SessionID, client.UserID, "user", sessions.MessageTypeChat, trimmedMessage)
+		if err != nil {
+			logger.ErrorErr(err, "failed to save chat message",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+
+			client.SendError("server_error", "failed to save message", err.Error())
+			return err
+		}
+
+		// add display name to payload
+		payload.DisplayName = client.DisplayName
+		payload.Message = trimmedMessage
+
+		// create broadcast message
+		broadcastMsg, err := NewMessage(TypeChatMessage, client.SessionID, client.UserID, payload)
+		if err != nil {
+			logger.ErrorErr(err, "failed to create broadcast message",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+			return err
+		}
+
+		// broadcast to all clients in the session (including sender)
+		hub.BroadcastToSession(client.SessionID, broadcastMsg, "")
+
+		// update last activity
+		if err := sessionRepo.UpdateLastActivity(ctx, client.SessionID); err != nil {
+			logger.ErrorErr(err, "failed to update last activity",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+		}
+
+		logger.Info("chat message sent",
+			"client_id", client.ID,
+			"session_id", client.SessionID,
+			"display_name", client.DisplayName,
 		)
 
 		return nil

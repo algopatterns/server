@@ -14,26 +14,6 @@ import (
 	"github.com/charmbracelet/x/term"
 )
 
-type MessageModel struct {
-	Role      string   `json:"role"`
-	Content   string   `json:"content"`
-	Metadata  string   `json:"metadata,omitempty"`
-	Questions []string `json:"questions,omitempty"`
-}
-
-type EditorModel struct {
-	input               textinput.Model
-	viewport            viewport.Model
-	width               int
-	height              int
-	conversationHistory []MessageModel
-	isFetching          bool
-	spinner             spinner.Model
-	glamourRenderer     *glamour.TermRenderer
-	ready               bool
-	shouldScrollBottom  bool
-}
-
 // returns a new code editor
 func NewEditor() *EditorModel {
 	ti := textinput.New()
@@ -453,16 +433,4 @@ func (m *EditorModel) GetCode() string {
 		}
 	}
 	return ""
-}
-
-type AgentResponseMsg struct {
-	userQuery string
-	code      string
-	metadata  string
-	questions []string
-}
-
-type AgentErrorMsg struct {
-	userQuery string
-	err       error
 }

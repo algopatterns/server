@@ -3,6 +3,7 @@ package retriever
 import (
 	"context"
 	"log"
+	"slices"
 	"strings"
 	"testing"
 
@@ -73,7 +74,7 @@ func TestMergeAndRankDocs(t *testing.T) {
 	}
 
 	// verify ordering by similarity (descending)
-	for i := 0; i < len(merged)-1; i++ {
+	for i := range len(merged) - 1 {
 		if merged[i].Similarity < merged[i+1].Similarity {
 			t.Errorf("Results not sorted correctly: %f < %f at position %d",
 				merged[i].Similarity, merged[i+1].Similarity, i)
@@ -87,6 +88,7 @@ func TestMergeAndRankDocs(t *testing.T) {
 		if seen[result.ID] {
 			t.Errorf("Duplicate ID found: %s", result.ID)
 		}
+
 		seen[result.ID] = true
 	}
 
@@ -188,11 +190,10 @@ func TestExtractEditorKeywords(t *testing.T) {
 
 			// check that expected keywords are present
 			for _, keyword := range tt.expected {
-				if !contains([]string{result}, keyword) {
-					// split result to check individual keywords
+				if !slices.Contains([]string{result}, keyword) {
 					resultWords := make(map[string]bool)
 
-					for _, word := range strings.Split(result, " ") {
+					for word := range strings.SplitSeq(result, " ") {
 						resultWords[word] = true
 					}
 
@@ -228,22 +229,5 @@ func TestUniqueStrings(t *testing.T) {
 		if !seen[expected] {
 			t.Errorf("Expected string %q not found in result", expected)
 		}
-	}
-}
-
-// verifies the contains helper
-func TestContains(t *testing.T) {
-	slice := []string{"apple", "banana", "cherry"}
-
-	if !contains(slice, "banana") {
-		t.Error("Expected contains to return true for 'banana'")
-	}
-
-	if contains(slice, "grape") {
-		t.Error("Expected contains to return false for 'grape'")
-	}
-
-	if contains([]string{}, "anything") {
-		t.Error("Expected contains to return false for empty slice")
 	}
 }

@@ -2,13 +2,11 @@ package collaboration
 
 import "time"
 
-// request to create a new session
 type CreateSessionRequest struct {
 	Title string `json:"title" binding:"required,max=200"`
 	Code  string `json:"code" binding:"max=1048576"` // 1MB limit
 }
 
-// response after creating a session
 type CreateSessionResponse struct {
 	ID           string    `json:"id"`
 	HostUserID   string    `json:"host_user_id"`
@@ -19,7 +17,6 @@ type CreateSessionResponse struct {
 	LastActivity time.Time `json:"last_activity"`
 }
 
-// response representing a session
 type SessionResponse struct {
 	ID           string                `json:"id"`
 	HostUserID   string                `json:"host_user_id"`
@@ -32,7 +29,6 @@ type SessionResponse struct {
 	Participants []ParticipantResponse `json:"participants,omitempty"`
 }
 
-// response representing a participant
 type ParticipantResponse struct {
 	ID          string     `json:"id"`
 	UserID      *string    `json:"user_id,omitempty"`
@@ -43,19 +39,16 @@ type ParticipantResponse struct {
 	LeftAt      *time.Time `json:"left_at,omitempty"`
 }
 
-// request to update session code
 type UpdateSessionCodeRequest struct {
 	Code string `json:"code" binding:"required,max=1048576"` // 1MB limit
 }
 
-// request to create an invite token
 type CreateInviteTokenRequest struct {
 	Role      string     `json:"role" binding:"required,oneof=co-author viewer"`
 	MaxUses   *int       `json:"max_uses,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
-// response representing an invite token
 type InviteTokenResponse struct {
 	ID        string     `json:"id"`
 	SessionID string     `json:"session_id"`
@@ -67,13 +60,11 @@ type InviteTokenResponse struct {
 	CreatedAt time.Time  `json:"created_at"`
 }
 
-// request to join a session via invite token
 type JoinSessionRequest struct {
 	InviteToken string `json:"invite_token" binding:"required"`
 	DisplayName string `json:"display_name,omitempty" binding:"max=100"`
 }
 
-// response after joining a session
 type JoinSessionResponse struct {
 	SessionID   string `json:"session_id"`
 	Role        string `json:"role"`

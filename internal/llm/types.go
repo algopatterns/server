@@ -9,6 +9,12 @@ type LLM interface {
 	TextGenerator
 }
 
+type CompositeLLM struct {
+	QueryTransformer
+	Embedder
+	TextGenerator
+}
+
 // represents different LLM providers
 type Provider string
 

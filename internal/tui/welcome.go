@@ -8,18 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type Welcome struct {
-	mode     string
-	input    string
-	commands []Command
-}
-
-type Command struct {
-	Name        string
-	Description string
-	Available   bool
-}
-
 // returns a new welcome screen
 func NewWelcome(mode string) *Welcome {
 	commands := []Command{
@@ -134,6 +122,3 @@ func (m *Welcome) executeCommand() tea.Cmd {
 		return nil
 	}
 }
-
-type ServerStartedMsg struct{}
-type IngesterCompleteMsg struct{}

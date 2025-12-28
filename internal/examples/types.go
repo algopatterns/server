@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// internal enriched representation
+// internal enriched example
 type Example struct {
 	ID          string
 	Title       string
@@ -17,7 +17,7 @@ type Example struct {
 	CreatedAt   time.Time
 }
 
-// represents input from external sources (JSON file, API request, etc.)
+// example from external sources (JSON file, API request, etc.)
 type RawExample struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description"`

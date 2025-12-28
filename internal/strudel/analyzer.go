@@ -6,77 +6,37 @@ import (
 	"strings"
 )
 
-// contains semantic analysis results
-type CodeAnalysis struct {
-	// categorized tags
-	SoundTags      []string // ["drums", "synth", "bass"]
-	EffectTags     []string // ["delay", "reverb", "filter"]
-	MusicalTags    []string // ["melody", "chords", "rhythm"]
-	ComplexityTags []string // ["layered", "advanced", "simple"]
-
-	// metrics
-	Complexity    int // 0-10 score
-	LineCount     int
-	FunctionCount int
-	VariableCount int
-}
-
-// sound sample definitions organized by category
-type SoundDefinitions struct {
-	Drums      []string
-	Percussion []string
-	Synth      []string
-	Noise      []string
-	ZZFX       []string
-	Wavetable  []string
-	Misc       []string
-	Custom     []string
-}
-
-// sound effect function definitions organized by category
-type EffectDefinitions struct {
-	Filter         []string
-	FilterEnvelope []string
-	Distortion     []string
-	Dynamics       []string
-	Spatial        []string
-	Delay          []string
-	Reverb         []string
-	Modulation     []string
-	Envelope       []string
-	PitchEnvelope  []string
-	FMSynthesis    []string
-	Sampler        []string
-	Routing        []string
-	Sidechain      []string
-	Synthesis      []string
-	ZZFX           []string
-}
-
 // sound sample definitions organized by category (source of truth)
 var soundDefs = SoundDefinitions{
 	Drums: []string{
 		"bd", "sd", "rim", "cp", "hh", "oh", "cr", "rd", "ht", "mt", "lt",
 	},
+
 	Percussion: []string{
 		"bd", "sd", "rim", "cp", "hh", "oh", "cr", "rd", "ht", "mt", "lt",
 		"sh", "cb", "tb", "perc",
 	},
+
 	Synth: []string{
 		"sine", "sawtooth", "square", "triangle",
 	},
+
 	Noise: []string{
 		"white", "pink", "brown", "crackle",
 	},
+
 	ZZFX: []string{
 		"z_sawtooth", "z_tan", "z_noise", "z_sine", "z_square",
 	},
+
 	Wavetable: []string{
 		"wt_", // prefix match
 	},
+
 	Misc: []string{
 		"misc", "fx",
 	},
+
 	Custom: []string{
 		"user",
 	},
@@ -99,61 +59,76 @@ func buildSoundLookup() map[string][]string {
 // sound categorization lookup (built from soundDefs)
 var soundCategories = buildSoundLookup()
 
-// effect function definitions organized by category (source of truth)
+// effect function definitions organized by category
 var effectDefs = EffectDefinitions{
 	Filter: []string{
 		"lpf", "hpf", "bpf", "lpq", "hpq", "bpq", "vowel", "ftype",
 	},
+
 	FilterEnvelope: []string{
 		"lpattack", "lpdecay", "lpsustain", "lprelease", "lpenv",
 		"lpa", "lpd", "lps", "lpr", "lpe",
 		"hpattack", "hpdecay", "hpsustain", "hprelease", "hpenv",
 		"bpattack", "bpdecay", "bpsustain", "bprelease", "bpenv",
 	},
+
 	Distortion: []string{
 		"coarse", "crush", "distort", "shape",
 	},
+
 	Dynamics: []string{
 		"gain", "velocity", "compressor", "postgain", "post", "xfade",
 	},
+
 	Spatial: []string{
 		"pan", "jux", "juxBy",
 	},
+
 	Delay: []string{
 		"delay", "delaytime", "delayfeedback", "echo",
 	},
+
 	Reverb: []string{
 		"room", "roomsize", "roomfade", "roomlp", "roomdim", "iresponse",
 	},
+
 	Modulation: []string{
 		"phaser", "phaserdepth", "phasercenter", "phasersweep",
 		"tremolo", "tremolosync", "tremolodepth", "tremoloskew",
 		"tremolophase", "tremoloshape",
 		"vib", "vibmod", "am",
 	},
+
 	Envelope: []string{
 		"attack", "decay", "dec", "sustain", "release", "adsr",
 	},
+
 	PitchEnvelope: []string{
 		"pattack", "pdecay", "prelease", "penv", "pcurve", "panchor",
 	},
+
 	FMSynthesis: []string{
 		"fm", "fmh", "fmattack", "fmdecay", "fmsustain", "fmenv",
 	},
+
 	Sampler: []string{
 		"begin", "end", "loop", "loopBegin", "loopEnd",
 		"cut", "clip", "loopAt", "fit",
 		"chop", "striate", "slice", "splice", "scrub", "speed",
 	},
+
 	Routing: []string{
 		"orbit", "duckorbit",
 	},
+
 	Sidechain: []string{
 		"duck", "duckattack", "duckdepth",
 	},
+
 	Synthesis: []string{
 		"partials", "phases", "noise",
 	},
+
 	ZZFX: []string{
 		"zrand", "curve", "slide", "deltaSlide", "zmod", "zcrush",
 		"zdelay", "pitchJump", "pitchJumpTime", "lfo",
@@ -190,7 +165,7 @@ func buildEffectLookup() map[string]string {
 	return lookup
 }
 
-// effect categorization lookup (built from effectDefs)
+// effect categorization lookup
 var effectCategories = buildEffectLookup()
 
 // performs full semantic analysis on Strudel code
@@ -407,7 +382,6 @@ func GenerateTags(analysis CodeAnalysis, category string, existingTags []string)
 	return mapKeysToSlice(tags)
 }
 
-// helper functions
 func contains(slice []string, item string) bool {
 	return slices.Contains(slice, item)
 }
