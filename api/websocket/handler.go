@@ -2,14 +2,13 @@ package websocket
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
 	"github.com/algorave/server/algorave/sessions"
 	"github.com/algorave/server/internal/auth"
-	_ "github.com/algorave/server/internal/errors" // imported for godoc
+	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/logger"
 	ws "github.com/algorave/server/internal/websocket"
 )
@@ -48,7 +47,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 	return func(c *gin.Context) {
 		var params ConnectParams
 		if err := c.ShouldBindQuery(&params); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_params", "message": err.Error()})
+			errors.BadRequest(c, "invalid parameters", err)
 			return
 		}
 
@@ -56,12 +55,12 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 		ctx := c.Request.Context()
 		session, err := sessionRepo.GetSession(ctx, params.SessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found", "message": "Session does not exist"})
+			errors.SessionNotFound(c)
 			return
 		}
 
 		if !session.IsActive {
-			c.JSON(http.StatusForbidden, gin.H{"error": "session_inactive", "message": "Session has ended"})
+			errors.Forbidden(c, "session has ended")
 			return
 		}
 
@@ -89,17 +88,17 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 		if role == "" && params.InviteToken != "" {
 			inviteToken, err := sessionRepo.ValidateInviteToken(ctx, params.InviteToken)
 			if err != nil {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_invite", "message": "Invalid or expired invite token"})
+				errors.InvalidInvite(c, "")
 				return
 			}
 
 			if inviteToken.SessionID != params.SessionID {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "wrong_session", "message": "Invite token is for a different session"})
+				errors.InvalidInvite(c, "invite token is for a different session")
 				return
 			}
 
 			if inviteToken.MaxUses != nil && inviteToken.UsesCount >= *inviteToken.MaxUses {
-				c.JSON(http.StatusForbidden, gin.H{"error": "invite_expired", "message": "Invite token has reached maximum uses"})
+				errors.Forbidden(c, "invite token has reached maximum uses")
 				return
 			}
 
@@ -114,7 +113,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 
 		// if still no role, reject connection
 		if role == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "Valid authentication required"})
+			errors.Unauthorized(c, "valid authentication required")
 			return
 		}
 
@@ -123,13 +122,13 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 		canAccept, reason := hub.CanAcceptConnection(userID, ipAddress)
 
 		if !canAccept {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "connection_limit_exceeded", "message": reason})
+			errors.TooManyRequests(c, reason)
 			return
 		}
 
 		clientID, err := ws.GenerateClientID()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "message": "Failed to generate client ID"})
+			errors.InternalError(c, "failed to generate client ID", err)
 			return
 		}
 

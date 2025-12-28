@@ -99,9 +99,9 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"user":  user,
-			"token": token,
+		c.JSON(http.StatusOK, AuthResponse{
+			User:  user,
+			Token: token,
 		})
 	}
 }
@@ -131,7 +131,7 @@ func GetCurrentUserHandler(userRepo *users.Repository) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"user": user})
+		c.JSON(http.StatusOK, UserResponse{User: user})
 	}
 }
 
@@ -169,7 +169,7 @@ func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"user": user})
+		c.JSON(http.StatusOK, UserResponse{User: user})
 	}
 }
 
@@ -183,7 +183,7 @@ func UpdateProfileHandler(userRepo *users.Repository) gin.HandlerFunc {
 func LogoutHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		gothic.Logout(c.Writer, c.Request)
-		c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+		c.JSON(http.StatusOK, MessageResponse{Message: "logged out successfully"})
 	}
 }
 
