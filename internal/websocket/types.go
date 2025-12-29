@@ -143,12 +143,6 @@ type ChatMessagePayload struct {
 	DisplayName string `json:"display_name,omitempty"`
 }
 
-// ErrorPayload contains error information (flattened to match REST API format)
-type ErrorPayload struct {
-	Error   string `json:"error"`             // error code (lowercase_snake_case, matches REST API)
-	Message string `json:"message"`           // user-friendly message
-	Details string `json:"details,omitempty"` // optional details (sanitized in production)
-}
 
 // Client represents a WebSocket client connection
 type Client struct {

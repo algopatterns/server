@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/algorave/server/algorave/users"
+	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/logger"
 	"github.com/gorilla/websocket"
 )
@@ -183,7 +184,7 @@ func (c *Client) SendError(code, message, details string) {
 		sanitizedDetails = sanitizeErrorString(details)
 	}
 
-	errorMsg, err := NewMessage(TypeError, c.SessionID, c.UserID, ErrorPayload{
+	errorMsg, err := NewMessage(TypeError, c.SessionID, c.UserID, errors.ErrorResponse{
 		Error:   code,
 		Message: message,
 		Details: sanitizedDetails,

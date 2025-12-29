@@ -2,7 +2,6 @@ package auth
 
 import (
 	"net/http"
-	"os"
 
 	"slices"
 
@@ -11,24 +10,8 @@ import (
 	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/sessions"
 	"github.com/markbates/goth/gothic"
 )
-
-var (
-	sessionStore = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET")))
-)
-
-func init() {
-	// configure session options
-	sessionStore.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   3600, // 1 hour
-		HttpOnly: true,
-		Secure:   os.Getenv("ENVIRONMENT") == "production",
-		SameSite: http.SameSiteLaxMode,
-	}
-}
 
 // BeginAuthHandler godoc
 // @Summary Start OAuth authentication
