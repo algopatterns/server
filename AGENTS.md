@@ -36,7 +36,6 @@ This file contains detailed implementation decisions and technical context for t
 ```
 algorave/
 ├── algorave/                # Domain models & business logic
-│   ├── anonsessions/        # Anonymous session management
 │   ├── sessions/            # Collaborative sessions (with repository pattern)
 │   ├── strudels/            # User-saved Strudels
 │   └── users/               # User models
@@ -44,11 +43,10 @@ algorave/
 │   ├── rest/                # REST API handlers
 │   │   ├── auth/            # Authentication endpoints
 │   │   ├── collaboration/   # Session collaboration endpoints
-│   │   ├── generate/        # Code generation endpoints
 │   │   ├── health/          # Health check
-│   │   ├── sessions/        # Session management
+│   │   ├── sessions/        # Session management (transfer anonymous to strudel)
 │   │   └── strudels/        # Strudel CRUD
-│   └── websocket/           # WebSocket handlers for real-time collaboration
+│   └── websocket/           # WebSocket handlers for real-time collaboration + code generation
 ├── cmd/                     # Executable entry points
 │   ├── ingester/            # Documentation ingestion CLI
 │   ├── server/              # API server (Gin router + middleware)

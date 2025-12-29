@@ -25,4 +25,17 @@ const (
 		WHERE id = $3
 		RETURNING id, email, provider, provider_id, name, avatar_url, tier, created_at, updated_at
 	`
+
+	queryGetUserDailyUsage = `
+		SELECT get_user_usage_today($1)
+	`
+
+	queryGetSessionDailyUsage = `
+		SELECT get_session_usage_today($1)
+	`
+
+	queryLogUsage = `
+		INSERT INTO usage_logs (user_id, session_id, provider, model, input_tokens, output_tokens, is_byok)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
 )

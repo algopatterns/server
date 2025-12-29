@@ -45,6 +45,28 @@ func (r *repository) CreateSession(ctx context.Context, req *CreateSessionReques
 	return &session, nil
 }
 
+// creates a new anonymous session (no host user)
+func (r *repository) CreateAnonymousSession(ctx context.Context) (*Session, error) {
+	var session Session
+
+	err := r.db.QueryRow(ctx, queryCreateAnonymousSession).Scan(
+		&session.ID,
+		&session.HostUserID,
+		&session.Title,
+		&session.Code,
+		&session.IsActive,
+		&session.CreatedAt,
+		&session.EndedAt,
+		&session.LastActivity,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &session, nil
+}
+
 // retrieves a session by ID
 func (r *repository) GetSession(ctx context.Context, sessionID string) (*Session, error) {
 	var session Session

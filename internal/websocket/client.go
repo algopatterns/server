@@ -4,18 +4,20 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/algorave/server/algorave/users"
 	"github.com/algorave/server/internal/logger"
 	"github.com/gorilla/websocket"
 )
 
 // creates a new webSocket client connection
-func NewClient(id, sessionID, userID, displayName, role, ipAddress string, isAuthenticated bool, conn *websocket.Conn, hub *Hub) *Client {
+func NewClient(id, sessionID, userID, displayName, role, tier, ipAddress string, isAuthenticated bool, conn *websocket.Conn, hub *Hub) *Client {
 	return &Client{
 		ID:                     id,
 		SessionID:              sessionID,
 		UserID:                 userID,
 		DisplayName:            displayName,
 		Role:                   role,
+		Tier:                   tier,
 		IsAuthenticated:        isAuthenticated,
 		IPAddress:              ipAddress,
 		conn:                   conn,
@@ -25,6 +27,18 @@ func NewClient(id, sessionID, userID, displayName, role, ipAddress string, isAut
 		codeUpdateTimestamps:   make([]time.Time, 0, maxCodeUpdatesPerSecond),
 		agentRequestTimestamps: make([]time.Time, 0, maxAgentRequestsPerMinute),
 		chatMessageTimestamps:  make([]time.Time, 0, maxChatMessagesPerMinute),
+	}
+}
+
+// returns the per-minute agent request limit based on user tier
+func (c *Client) getAgentRequestLimit() int {
+	switch c.Tier {
+	case "pro":
+		return users.MinuteLimitPro
+	case "byok":
+		return users.MinuteLimitBYOK
+	default:
+		return users.MinuteLimitDefault
 	}
 }
 
@@ -239,16 +253,17 @@ func (c *Client) checkCodeUpdateRateLimit() bool {
 	return true
 }
 
-// checks if the client can send an agent request
+// checks if the client can send an agent request (tier-based limits)
 func (c *Client) checkAgentRequestRateLimit() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	limit := c.getAgentRequestLimit()
 	now := time.Now()
 	oneMinuteAgo := now.Add(-1 * time.Minute)
 
 	// remove timestamps older than 1 minute
-	validTimestamps := make([]time.Time, 0, maxAgentRequestsPerMinute)
+	validTimestamps := make([]time.Time, 0, limit)
 	for _, ts := range c.agentRequestTimestamps {
 		if ts.After(oneMinuteAgo) {
 			validTimestamps = append(validTimestamps, ts)
@@ -258,7 +273,7 @@ func (c *Client) checkAgentRequestRateLimit() bool {
 	c.agentRequestTimestamps = validTimestamps
 
 	// check if we've exceeded the limit
-	if len(c.agentRequestTimestamps) >= maxAgentRequestsPerMinute {
+	if len(c.agentRequestTimestamps) >= limit {
 		return false
 	}
 

@@ -198,52 +198,6 @@ definitions:
       message:
         type: string
     type: object
-  api_rest_generate.Request:
-    properties:
-      conversation_history:
-        description: max 100 messages
-        items:
-          $ref: '#/definitions/github_com_algorave_server_internal_agent.Message'
-        maxItems: 100
-        type: array
-      editor_state:
-        description: 1MB limit
-        maxLength: 1048576
-        type: string
-      provider:
-        description: '"openai" or "claude"'
-        type: string
-      provider_api_key:
-        type: string
-      session_id:
-        type: string
-      strudel_id:
-        type: string
-      user_query:
-        maxLength: 5000
-        type: string
-    required:
-    - user_query
-    type: object
-  api_rest_generate.Response:
-    properties:
-      clarifying_questions:
-        items:
-          type: string
-        type: array
-      code:
-        type: string
-      docs_retrieved:
-        type: integer
-      examples_retrieved:
-        type: integer
-      is_actionable:
-        type: boolean
-      model:
-        type: string
-      session_id:
-        type: string
-    type: object
   api_rest_health.PingResponse:
     properties:
       message:
@@ -620,41 +574,6 @@ paths:
       summary: Update user profile
       tags:
       - auth
-  /api/v1/generate:
-    post:
-      consumes:
-      - application/json
-      description: Generate Strudel code from natural language using AI. Supports
-        both authenticated and anonymous users. For authenticated users, can load
-        context from saved strudels. For anonymous users, manages conversation state
-        via sessions.
-      parameters:
-      - description: Generation request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/api_rest_generate.Request'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api_rest_generate.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_algorave_server_internal_errors.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/github_com_algorave_server_internal_errors.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Generate Strudel code
-      tags:
-      - generation
   /api/v1/ping:
     get:
       description: Simple ping endpoint
@@ -1418,7 +1337,7 @@ paths:
       consumes:
       - application/json
       description: |-
-        Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token.
+        Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token. If no session_id is provided, creates a new anonymous session.
 
         Message Types:
         - code_update: Real-time code changes
@@ -1427,10 +1346,9 @@ paths:
         - user_joined: User join notifications
         - user_left: User leave notifications
       parameters:
-      - description: Session ID (UUID)
+      - description: Session ID (UUID) - if not provided, creates new anonymous session
         in: query
         name: session_id
-        required: true
         type: string
       - description: JWT authentication token
         in: query

@@ -211,57 +211,6 @@
                 }
             }
         },
-        "/api/v1/generate": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Generate Strudel code from natural language using AI. Supports both authenticated and anonymous users. For authenticated users, can load context from saved strudels. For anonymous users, manages conversation state via sessions.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "generation"
-                ],
-                "summary": "Generate Strudel code",
-                "parameters": [
-                    {
-                        "description": "Generation request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/api_rest_generate.Request"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/api_rest_generate.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_algorave_server_internal_errors.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_algorave_server_internal_errors.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/ping": {
             "get": {
                 "description": "Simple ping endpoint",
@@ -1437,7 +1386,7 @@
         },
         "/api/v1/ws": {
             "get": {
-                "description": "Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token.\n\nMessage Types:\n- code_update: Real-time code changes\n- agent_request: AI code generation requests\n- chat_message: Chat messages\n- user_joined: User join notifications\n- user_left: User leave notifications",
+                "description": "Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token. If no session_id is provided, creates a new anonymous session.\n\nMessage Types:\n- code_update: Real-time code changes\n- agent_request: AI code generation requests\n- chat_message: Chat messages\n- user_joined: User join notifications\n- user_left: User leave notifications",
                 "consumes": [
                     "application/json"
                 ],
@@ -1451,10 +1400,9 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Session ID (UUID)",
+                        "description": "Session ID (UUID) - if not provided, creates new anonymous session",
                         "name": "session_id",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -1835,73 +1783,6 @@
                     "type": "string"
                 },
                 "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "api_rest_generate.Request": {
-            "type": "object",
-            "required": [
-                "user_query"
-            ],
-            "properties": {
-                "conversation_history": {
-                    "description": "max 100 messages",
-                    "type": "array",
-                    "maxItems": 100,
-                    "items": {
-                        "$ref": "#/definitions/github_com_algorave_server_internal_agent.Message"
-                    }
-                },
-                "editor_state": {
-                    "description": "1MB limit",
-                    "type": "string",
-                    "maxLength": 1048576
-                },
-                "provider": {
-                    "description": "\"openai\" or \"claude\"",
-                    "type": "string"
-                },
-                "provider_api_key": {
-                    "type": "string"
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "strudel_id": {
-                    "type": "string"
-                },
-                "user_query": {
-                    "type": "string",
-                    "maxLength": 5000
-                }
-            }
-        },
-        "api_rest_generate.Response": {
-            "type": "object",
-            "properties": {
-                "clarifying_questions": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "code": {
-                    "type": "string"
-                },
-                "docs_retrieved": {
-                    "type": "integer"
-                },
-                "examples_retrieved": {
-                    "type": "integer"
-                },
-                "is_actionable": {
-                    "type": "boolean"
-                },
-                "model": {
-                    "type": "string"
-                },
-                "session_id": {
                     "type": "string"
                 }
             }

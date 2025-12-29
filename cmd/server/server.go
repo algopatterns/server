@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorave/server/algorave/anonsessions"
 	"github.com/algorave/server/algorave/sessions"
 	"github.com/algorave/server/algorave/strudels"
 	"github.com/algorave/server/algorave/users"
@@ -31,7 +30,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	userRepo := users.NewRepository(db)
 	strudelRepo := strudels.NewRepository(db)
 	sessionRepo := sessions.NewRepository(db)
-	sessionMgr := anonsessions.NewManager()
 
 	services, err := InitializeServices(cfg, db)
 	if err != nil {
@@ -40,6 +38,12 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 
 	hub := ws.NewHub()
+
+	// register websocket message handlers
+	hub.RegisterHandler(ws.TypeCodeUpdate, ws.CodeUpdateHandler(sessionRepo))
+	hub.RegisterHandler(ws.TypeAgentRequest, ws.GenerateHandler(services.Agent, sessionRepo, userRepo))
+	hub.RegisterHandler(ws.TypeChatMessage, ws.ChatHandler(sessionRepo))
+
 	router := gin.Default()
 
 	server := &Server{
@@ -48,7 +52,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		userRepo:    userRepo,
 		strudelRepo: strudelRepo,
 		sessionRepo: sessionRepo,
-		sessionMgr:  sessionMgr,
 		services:    services,
 		hub:         hub,
 		router:      router,

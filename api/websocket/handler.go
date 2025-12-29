@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/algorave/server/algorave/sessions"
+	"github.com/algorave/server/algorave/users"
 	"github.com/algorave/server/internal/auth"
 	"github.com/algorave/server/internal/errors"
 	"github.com/algorave/server/internal/logger"
@@ -21,7 +22,7 @@ var upgrader = websocket.Upgrader{
 
 // WebSocketHandler godoc
 // @Summary WebSocket connection
-// @Description Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token.
+// @Description Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token. If no session_id is provided, creates a new anonymous session.
 // @Description
 // @Description Message Types:
 // @Description - code_update: Real-time code changes
@@ -32,7 +33,7 @@ var upgrader = websocket.Upgrader{
 // @Tags websocket
 // @Accept json
 // @Produce json
-// @Param session_id query string true "Session ID (UUID)"
+// @Param session_id query string false "Session ID (UUID) - if not provided, creates new anonymous session"
 // @Param token query string false "JWT authentication token"
 // @Param invite_token query string false "Session invite token"
 // @Param display_name query string false "Display name for anonymous users"
@@ -43,7 +44,7 @@ var upgrader = websocket.Upgrader{
 // @Failure 404 {object} errors.ErrorResponse
 // @Failure 429 {object} errors.ErrorResponse
 // @Router /api/v1/ws [get]
-func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerFunc {
+func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var params ConnectParams
 		if err := c.ShouldBindQuery(&params); err != nil {
@@ -51,76 +52,140 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 			return
 		}
 
-		// validate session_id is a valid UUID
-		if !errors.IsValidUUID(params.SessionID) {
-			errors.BadRequest(c, "invalid session_id format", nil)
-			return
-		}
-
-		// verify session exists and is active
 		ctx := c.Request.Context()
-		session, err := sessionRepo.GetSession(ctx, params.SessionID)
-		if err != nil {
-			errors.SessionNotFound(c)
-			return
-		}
-
-		if !session.IsActive {
-			errors.Forbidden(c, "session has ended")
-			return
-		}
-
-		// authenticate and determine user info
+		var session *sessions.Session
 		var userID string
 		var displayName string
 		var role string
+		var tier string
 
-		if params.Token != "" {
-			claims, err := auth.ValidateJWT(params.Token)
-			if err == nil {
-				userID = claims.UserID
-				if userID == session.HostUserID {
+		// case 1: No session_id provided - create new anonymous session
+		if params.SessionID == "" {
+			// check for JWT token first (authenticated user creating session)
+			if params.Token != "" {
+				claims, err := auth.ValidateJWT(params.Token)
+				if err == nil {
+					userID = claims.UserID
+					// create session with authenticated user as host
+					newSession, err := sessionRepo.CreateSession(ctx, &sessions.CreateSessionRequest{
+						HostUserID: userID,
+						Title:      "New Session",
+						Code:       "",
+					})
+					if err != nil {
+						errors.InternalError(c, "failed to create session", err)
+						return
+					}
+					session = newSession
 					role = "host"
 					displayName = "Host"
-				} else {
-					// user is authenticated but not host - default to viewer
-					role = "viewer"
-					displayName = "Viewer"
+
+					// look up user's subscription tier for rate limiting
+					user, err := userRepo.FindByID(ctx, userID)
+					if err == nil {
+						tier = user.Tier
+					} else {
+						tier = "free"
+					}
 				}
 			}
-		}
 
-		// try invite token authentication if no JWT or JWT failed
-		if role == "" && params.InviteToken != "" {
-			inviteToken, err := sessionRepo.ValidateInviteToken(ctx, params.InviteToken)
+			// no valid JWT - create anonymous session
+			if session == nil {
+				newSession, err := sessionRepo.CreateAnonymousSession(ctx)
+				if err != nil {
+					errors.InternalError(c, "failed to create anonymous session", err)
+					return
+				}
+				session = newSession
+				role = "host" // anonymous user is "host" of their own session
+				tier = "free"
+				if params.DisplayName != "" {
+					displayName = params.DisplayName
+				} else {
+					displayName = "Anonymous"
+				}
+			}
+
+			params.SessionID = session.ID
+		} else {
+			// case 2: session_id provided - validate and join existing session
+			if !errors.IsValidUUID(params.SessionID) {
+				errors.BadRequest(c, "invalid session_id format", nil)
+				return
+			}
+
+			var err error
+			session, err = sessionRepo.GetSession(ctx, params.SessionID)
 			if err != nil {
-				errors.InvalidInvite(c, "")
+				errors.SessionNotFound(c)
 				return
 			}
 
-			if inviteToken.SessionID != params.SessionID {
-				errors.InvalidInvite(c, "invite token is for a different session")
+			if !session.IsActive {
+				errors.Forbidden(c, "session has ended")
 				return
 			}
 
-			if inviteToken.MaxUses != nil && inviteToken.UsesCount >= *inviteToken.MaxUses {
-				errors.Forbidden(c, "invite token has reached maximum uses")
+			// try JWT authentication
+			if params.Token != "" {
+				claims, err := auth.ValidateJWT(params.Token)
+				if err == nil {
+					userID = claims.UserID
+					if userID == session.HostUserID {
+						role = "host"
+						displayName = "Host"
+					} else {
+						role = "viewer"
+						displayName = "Viewer"
+					}
+
+					user, err := userRepo.FindByID(ctx, userID)
+					if err == nil {
+						tier = user.Tier
+					} else {
+						tier = "free"
+						logger.Warn("failed to look up user tier",
+							"user_id", userID,
+							"error", err,
+						)
+					}
+				}
+			}
+
+			// try invite token if no JWT or JWT failed
+			if role == "" && params.InviteToken != "" {
+				inviteToken, err := sessionRepo.ValidateInviteToken(ctx, params.InviteToken)
+				if err != nil {
+					errors.InvalidInvite(c, "")
+					return
+				}
+
+				if inviteToken.SessionID != params.SessionID {
+					errors.InvalidInvite(c, "invite token is for a different session")
+					return
+				}
+
+				if inviteToken.MaxUses != nil && inviteToken.UsesCount >= *inviteToken.MaxUses {
+					errors.Forbidden(c, "invite token has reached maximum uses")
+					return
+				}
+
+				role = inviteToken.Role
+				tier = "free"
+
+				if params.DisplayName != "" {
+					displayName = params.DisplayName
+				} else {
+					displayName = fmt.Sprintf("Anonymous %s", inviteToken.Role)
+				}
+			}
+
+			// if still no role, reject connection
+			if role == "" {
+				errors.Unauthorized(c, "valid authentication required")
 				return
 			}
-
-			role = inviteToken.Role
-
-			if params.DisplayName != "" {
-				displayName = params.DisplayName
-			} else {
-				displayName = fmt.Sprintf("Anonymous %s", inviteToken.Role)
-			}
-		}
-
-		// if still no role, reject connection
-		if role == "" {
-			errors.Unauthorized(c, "valid authentication required")
-			return
 		}
 
 		// check connection limits before accepting new connection
@@ -152,7 +217,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 		}
 
 		isAuthenticated := userID != ""
-		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, ipAddress, isAuthenticated, conn, hub)
+		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, tier, ipAddress, isAuthenticated, conn, hub)
 
 		// add participant to session (authenticated or anonymous)
 		if isAuthenticated {
@@ -183,6 +248,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 			"client_id", clientID,
 			"session_id", params.SessionID,
 			"role", role,
+			"tier", tier,
 			"user_id", userID,
 			"ip", ipAddress,
 		)

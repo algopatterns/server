@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/algorave/server/algorave/sessions"
+	"github.com/algorave/server/algorave/users"
 	"github.com/algorave/server/internal/agent"
 	"github.com/algorave/server/internal/llm"
 	"github.com/algorave/server/internal/logger"
@@ -76,11 +77,11 @@ func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 }
 
 // handles code generation request messages
-func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) MessageHandler {
+func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, userRepo *users.Repository) MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {
-		// check rate limit
+		// check per-minute rate limit
 		if !client.checkAgentRequestRateLimit() {
-			client.SendError("too_many_requests", "too many agent requests. maximum 5 per minute.", "")
+			client.SendError("too_many_requests", "too many agent requests. maximum 10 per minute.", "")
 			return ErrRateLimitExceeded
 		}
 
@@ -89,6 +90,40 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		if err := msg.UnmarshalPayload(&payload); err != nil {
 			client.SendError("validation_error", "failed to parse generation request", err.Error())
 			return err
+		}
+
+		isBYOK := payload.ProviderAPIKey != ""
+		ctx := context.Background()
+
+		// check daily rate limit
+		if client.IsAuthenticated && client.UserID != "" {
+			result, err := userRepo.CheckUserRateLimit(ctx, client.UserID, isBYOK)
+			if err != nil {
+				logger.ErrorErr(err, "failed to check rate limit",
+					"client_id", client.ID,
+					"user_id", client.UserID,
+				)
+				client.SendError("server_error", "failed to check rate limit", "")
+				return err
+			}
+
+			if !result.Allowed {
+				client.SendError("too_many_requests", "daily generation limit exceeded", "")
+				return ErrRateLimitExceeded
+			}
+		} else {
+			// anonymous user - check session rate limit
+			result, err := userRepo.CheckSessionRateLimit(ctx, client.SessionID)
+			if err != nil {
+				logger.ErrorErr(err, "failed to check session rate limit",
+					"client_id", client.ID,
+					"session_id", client.SessionID,
+				)
+				// continue anyway for anonymous users if rate limit check fails
+			} else if !result.Allowed {
+				client.SendError("too_many_requests", "daily generation limit exceeded for anonymous users", "")
+				return ErrRateLimitExceeded
+			}
 		}
 
 		// broadcast the user's prompt to all clients (sanitized - no private data)
@@ -110,16 +145,16 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 
 		// convert conversation history to agent.Message format
 		conversationHistory := make([]agent.Message, 0, len(payload.ConversationHistory))
-		for _, msg := range payload.ConversationHistory {
+		for _, m := range payload.ConversationHistory {
 			conversationHistory = append(conversationHistory, agent.Message{
-				Role:    msg.Role,
-				Content: msg.Content,
+				Role:    m.Role,
+				Content: m.Content,
 			})
 		}
 
 		// create custom generator if BYOK
 		var customGenerator llm.TextGenerator
-		if payload.ProviderAPIKey != "" {
+		if isBYOK {
 			if payload.Provider == "" {
 				client.SendError("bad_request", "provider is required when using provider_api_key", "")
 				return ErrInvalidMessage
@@ -142,7 +177,6 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 		}
 
 		// generate code using agent
-		ctx := context.Background()
 		response, err := agentClient.Generate(ctx, agentReq)
 
 		if err != nil {
@@ -152,6 +186,30 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository) 
 			)
 			client.SendError("server_error", "failed to generate code", err.Error())
 			return err
+		}
+
+		// log usage after successful generation
+		var userIDPtr *string
+		if client.IsAuthenticated && client.UserID != "" {
+			userIDPtr = &client.UserID
+		}
+
+		usageReq := &users.UsageLogRequest{
+			UserID:       userIDPtr,
+			SessionID:    client.SessionID,
+			Provider:     "anthropic",
+			Model:        response.Model,
+			InputTokens:  0, // TODO: track actual tokens
+			OutputTokens: 0,
+			IsBYOK:       isBYOK,
+		}
+
+		if err := userRepo.LogUsage(ctx, usageReq); err != nil {
+			logger.ErrorErr(err, "failed to log usage",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+			// don't fail the request if logging fails
 		}
 
 		// save messages to session history
@@ -234,7 +292,7 @@ func ChatHandler(sessionRepo sessions.Repository) MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {
 		// check rate limit
 		if !client.checkChatRateLimit() {
-			client.SendError("too_many_requests", "too many chat messages. maximum 30 per minute.", "")
+			client.SendError("too_many_requests", "too many chat messages. maximum 20 per minute.", "")
 			return ErrRateLimitExceeded
 		}
 

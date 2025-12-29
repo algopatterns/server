@@ -7,6 +7,11 @@ bin/
 *.so
 *.dylib
 
+# Root-level binaries (use `make build` to output to bin/)
+/server
+/ingester
+/algorave
+
 # Test binary, built with `go test -c`
 *.test
 

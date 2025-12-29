@@ -55,8 +55,8 @@ const (
 
 	// rate limiting constants
 	maxCodeUpdatesPerSecond   = 10 // maximum code updates per second
-	maxAgentRequestsPerMinute = 5  // maximum agent requests per minute
-	maxChatMessagesPerMinute  = 30 // maximum chat messages per minute
+	maxAgentRequestsPerMinute = 10 // maximum agent requests per minute
+	maxChatMessagesPerMinute  = 20 // maximum chat messages per minute
 
 	// content size limits
 	maxCodeSize        = 100 * 1024 // 100 KB maximum code size
@@ -166,6 +166,9 @@ type Client struct {
 
 	// role in the session (host, co-author, viewer)
 	Role string
+
+	// subscription tier (free, pro, byok) - used for rate limiting
+	Tier string
 
 	// whether this client has an authenticated user account
 	IsAuthenticated bool

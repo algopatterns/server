@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/algorave/server/algorave/anonsessions"
 	"github.com/algorave/server/algorave/sessions"
 	"github.com/algorave/server/algorave/strudels"
 	"github.com/algorave/server/algorave/users"
@@ -22,7 +21,6 @@ type Server struct {
 	userRepo    *users.Repository
 	strudelRepo *strudels.Repository
 	sessionRepo sessions.Repository
-	sessionMgr  *anonsessions.Manager
 	services    *Services
 	hub         *ws.Hub
 	router      *gin.Engine

@@ -8,6 +8,12 @@ const (
 		RETURNING id, host_user_id, title, code, is_active, created_at, ended_at, last_activity
 	`
 
+	queryCreateAnonymousSession = `
+		INSERT INTO sessions (host_user_id, title, code)
+		VALUES ('00000000-0000-0000-0000-000000000000', 'Anonymous Session', '')
+		RETURNING id, host_user_id, title, code, is_active, created_at, ended_at, last_activity
+	`
+
 	queryGetSession = `
 		SELECT id, host_user_id, title, code, is_active, created_at, ended_at, last_activity
 		FROM sessions

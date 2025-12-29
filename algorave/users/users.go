@@ -99,3 +99,99 @@ func (r *Repository) UpdateProfile(
 
 	return &user, nil
 }
+
+// checks if an authenticated user can make a generation request
+func (r *Repository) CheckUserRateLimit(ctx context.Context, userID string, isBYOK bool) (*RateLimitResult, error) {
+	// BYOK users have unlimited usage
+	if isBYOK {
+		return &RateLimitResult{
+			Allowed:   true,
+			Current:   0,
+			Limit:     DailyLimitBYOK,
+			Remaining: -1,
+		}, nil
+	}
+
+	// get user's tier
+	user, err := r.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// determine limit based on tier
+	var limit int
+	switch user.Tier {
+	case "pro":
+		limit = DailyLimitPro
+	case "byok":
+		limit = DailyLimitBYOK
+	default:
+		limit = DailyLimitFree
+	}
+
+	// unlimited tiers always allowed
+	if limit == -1 {
+		return &RateLimitResult{
+			Allowed:   true,
+			Current:   0,
+			Limit:     limit,
+			Remaining: -1,
+		}, nil
+	}
+
+	// get current daily usage
+	var current int
+	err = r.db.QueryRow(ctx, queryGetUserDailyUsage, userID).Scan(&current)
+	if err != nil {
+		return nil, err
+	}
+
+	remaining := limit - current
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return &RateLimitResult{
+		Allowed:   current < limit,
+		Current:   current,
+		Limit:     limit,
+		Remaining: remaining,
+	}, nil
+}
+
+// checks if an anonymous session can make a generation request
+func (r *Repository) CheckSessionRateLimit(ctx context.Context, sessionID string) (*RateLimitResult, error) {
+	var current int
+	err := r.db.QueryRow(ctx, queryGetSessionDailyUsage, sessionID).Scan(&current)
+	if err != nil {
+		return nil, err
+	}
+
+	remaining := DailyLimitAnonymous - current
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return &RateLimitResult{
+		Allowed:   current < DailyLimitAnonymous,
+		Current:   current,
+		Limit:     DailyLimitAnonymous,
+		Remaining: remaining,
+	}, nil
+}
+
+// logs a generation request for tracking and rate limiting
+func (r *Repository) LogUsage(ctx context.Context, req *UsageLogRequest) error {
+	_, err := r.db.Exec(
+		ctx,
+		queryLogUsage,
+		req.UserID,
+		req.SessionID,
+		req.Provider,
+		req.Model,
+		req.InputTokens,
+		req.OutputTokens,
+		req.IsBYOK,
+	)
+	return err
+}
