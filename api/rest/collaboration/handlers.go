@@ -420,18 +420,18 @@ func JoinSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 			return
 		}
 
-		userID, _ := auth.GetUserID(c)
+		userID, isAuthenticated := auth.GetUserID(c)
 		displayName := req.DisplayName
 
 		if displayName == "" {
-			if userID != "" {
+			if isAuthenticated {
 				displayName = "User"
 			} else {
 				displayName = "Anonymous"
 			}
 		}
 
-		if userID != "" {
+		if isAuthenticated {
 			_, err = sessionRepo.AddAuthenticatedParticipant(c.Request.Context(), token.SessionID, userID, displayName, token.Role)
 			if err != nil {
 				errors.InternalError(c, "failed to join session", err)

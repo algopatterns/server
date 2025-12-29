@@ -16,6 +16,7 @@ func LoadEnvironmentVariables() (*Config, error) {
 	openaiKey := os.Getenv("OPENAI_API_KEY")
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 	supabaseConnStr := os.Getenv("SUPABASE_CONNECTION_STRING")
+	jwtSecret := os.Getenv("JWT_SECRET")
 	environment := os.Getenv("ENVIRONMENT")
 
 	if openaiKey == "" {
@@ -28,6 +29,10 @@ func LoadEnvironmentVariables() (*Config, error) {
 
 	if supabaseConnStr == "" {
 		return nil, fmt.Errorf("SUPABASE_CONNECTION_STRING environment variable is required")
+	}
+
+	if jwtSecret == "" {
+		return nil, fmt.Errorf("JWT_SECRET environment variable is required")
 	}
 
 	if environment == "" {

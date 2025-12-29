@@ -20,30 +20,8 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     ws.CheckOrigin,
 }
 
-// WebSocketHandler godoc
-// @Summary WebSocket connection
-// @Description Establish WebSocket connection for real-time collaboration. Supports authentication via JWT token or invite token. If no session_id is provided, creates a new anonymous session.
-// @Description
-// @Description Message Types:
-// @Description - code_update: Real-time code changes
-// @Description - agent_request: AI code generation requests
-// @Description - chat_message: Chat messages
-// @Description - user_joined: User join notifications
-// @Description - user_left: User leave notifications
-// @Tags websocket
-// @Accept json
-// @Produce json
-// @Param session_id query string false "Session ID (UUID) - if not provided, creates new anonymous session"
-// @Param token query string false "JWT authentication token"
-// @Param invite_token query string false "Session invite token"
-// @Param display_name query string false "Display name for anonymous users"
-// @Success 101 {string} string "Switching Protocols"
-// @Failure 400 {object} errors.ErrorResponse
-// @Failure 401 {object} errors.ErrorResponse
-// @Failure 403 {object} errors.ErrorResponse
-// @Failure 404 {object} errors.ErrorResponse
-// @Failure 429 {object} errors.ErrorResponse
-// @Router /api/v1/ws [get]
+// handles WebSocket connections for real-time collaboration.
+// see docs/websocket/API.md for usage documentation.
 func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var params ConnectParams
@@ -66,6 +44,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 				claims, err := auth.ValidateJWT(params.Token)
 				if err == nil {
 					userID = claims.UserID
+
 					// create session with authenticated user as host
 					newSession, err := sessionRepo.CreateSession(ctx, &sessions.CreateSessionRequest{
 						HostUserID: userID,
@@ -76,13 +55,14 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 						errors.InternalError(c, "failed to create session", err)
 						return
 					}
+
 					session = newSession
-					role = "host"
 					displayName = "Host"
+					role = "host"
 
 					// look up user's subscription tier for rate limiting
 					user, err := userRepo.FindByID(ctx, userID)
-					if err == nil {
+					if err == nil && user != nil {
 						tier = user.Tier
 					} else {
 						tier = "free"
@@ -97,9 +77,11 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 					errors.InternalError(c, "failed to create anonymous session", err)
 					return
 				}
+
 				session = newSession
 				role = "host" // anonymous user is "host" of their own session
 				tier = "free"
+
 				if params.DisplayName != "" {
 					displayName = params.DisplayName
 				} else {
@@ -132,6 +114,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 				claims, err := auth.ValidateJWT(params.Token)
 				if err == nil {
 					userID = claims.UserID
+
 					if userID == session.HostUserID {
 						role = "host"
 						displayName = "Host"
@@ -141,14 +124,16 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 					}
 
 					user, err := userRepo.FindByID(ctx, userID)
-					if err == nil {
+					if err == nil && user != nil {
 						tier = user.Tier
 					} else {
 						tier = "free"
-						logger.Warn("failed to look up user tier",
-							"user_id", userID,
-							"error", err,
-						)
+						if err != nil {
+							logger.Warn("failed to look up user tier",
+								"user_id", userID,
+								"error", err,
+							)
+						}
 					}
 				}
 			}
