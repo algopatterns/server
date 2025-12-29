@@ -37,6 +37,7 @@ var anthropicRateLimiter = rate.NewLimiter(50, 10)
 type transformRequest struct {
 	Model       string    `json:"model"`
 	MaxTokens   int       `json:"max_tokens"`
+	System      string    `json:"system,omitempty"`
 	Messages    []message `json:"messages"`
 	Temperature float32   `json:"temperature"`
 }
@@ -165,23 +166,13 @@ func (t *AnthropicTransformer) TransformQuery(ctx context.Context, userQuery str
 }
 
 func (t *AnthropicTransformer) GenerateText(ctx context.Context, req TextGenerationRequest) (string, error) {
-	// build messages array with system prompt and conversation history
-	messages := make([]message, 0, len(req.Messages)+1)
+	// build messages array from conversation history
+	messages := make([]message, 0, len(req.Messages))
 
-	// if there's a system prompt, prepend it to the first user message
-	systemPrompt := req.SystemPrompt
-
-	for i, msg := range req.Messages {
-		content := msg.Content
-
-		// prepend system prompt to first user message
-		if i == 0 && msg.Role == "user" && systemPrompt != "" {
-			content = systemPrompt + "\n\n" + content
-		}
-
+	for _, msg := range req.Messages {
 		messages = append(messages, message{
 			Role:    msg.Role,
-			Content: content,
+			Content: msg.Content,
 		})
 	}
 
@@ -194,6 +185,7 @@ func (t *AnthropicTransformer) GenerateText(ctx context.Context, req TextGenerat
 	reqBody := transformRequest{
 		Model:       t.config.Model,
 		MaxTokens:   maxTokens,
+		System:      req.SystemPrompt,
 		Temperature: t.config.Temperature,
 		Messages:    messages,
 	}

@@ -1,0 +1,175 @@
+package sessions
+
+const (
+	// Session queries
+	queryCreateSession = `
+		INSERT INTO sessions (host_user_id, title, code)
+		VALUES ($1, $2, $3)
+		RETURNING id, host_user_id, title, code, is_active, created_at, ended_at, last_activity
+	`
+
+	queryGetSession = `
+		SELECT id, host_user_id, title, code, is_active, created_at, ended_at, last_activity
+		FROM sessions
+		WHERE id = $1
+	`
+
+	queryGetUserSessions = `
+		SELECT DISTINCT s.id, s.host_user_id, s.title, s.code, s.is_active, s.created_at, s.ended_at, s.last_activity
+		FROM sessions s
+		LEFT JOIN session_participants sp ON s.id = sp.session_id
+		WHERE s.host_user_id = $1 OR sp.user_id = $1
+		ORDER BY s.last_activity DESC
+	`
+
+	queryGetUserSessionsActiveOnly = `
+		SELECT DISTINCT s.id, s.host_user_id, s.title, s.code, s.is_active, s.created_at, s.ended_at, s.last_activity
+		FROM sessions s
+		LEFT JOIN session_participants sp ON s.id = sp.session_id
+		WHERE (s.host_user_id = $1 OR sp.user_id = $1) AND s.is_active = true
+		ORDER BY s.last_activity DESC
+	`
+
+	queryUpdateSessionCode = `
+		UPDATE sessions
+		SET code = $1, last_activity = NOW()
+		WHERE id = $2
+	`
+
+	queryEndSession = `
+		UPDATE sessions
+		SET is_active = false, ended_at = NOW()
+		WHERE id = $1
+	`
+
+	// Authenticated participant queries
+	queryAddAuthenticatedParticipant = `
+		INSERT INTO session_participants (session_id, user_id, display_name, role)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (session_id, user_id) DO UPDATE
+		SET status = 'active', left_at = NULL
+		RETURNING id, session_id, user_id, display_name, role, status, joined_at, left_at
+	`
+
+	queryGetAuthenticatedParticipant = `
+		SELECT id, session_id, user_id, display_name, role, status, joined_at, left_at
+		FROM session_participants
+		WHERE session_id = $1 AND user_id = $2
+	`
+
+	queryMarkAuthenticatedParticipantLeft = `
+		UPDATE session_participants
+		SET status = 'left', left_at = NOW()
+		WHERE id = $1
+	`
+
+	queryListAuthenticatedParticipants = `
+		SELECT id, session_id, user_id, display_name, role, status, joined_at, left_at
+		FROM session_participants
+		WHERE session_id = $1
+		ORDER BY joined_at ASC
+	`
+
+	queryGetParticipantByID = `
+		SELECT id, session_id, user_id, display_name, role, status, joined_at, left_at
+		FROM session_participants
+		WHERE id = $1
+	`
+
+	queryRemoveAuthenticatedParticipant = `
+		UPDATE session_participants
+		SET status = 'left', left_at = NOW()
+		WHERE id = $1
+	`
+
+	queryUpdateParticipantRole = `
+		UPDATE session_participants
+		SET role = $1
+		WHERE id = $2
+	`
+
+	// Anonymous participant queries
+	queryAddAnonymousParticipant = `
+		INSERT INTO anonymous_participants (session_id, display_name, role)
+		VALUES ($1, $2, $3)
+		RETURNING id, session_id, display_name, role, status, joined_at, left_at, expires_at
+	`
+
+	queryListAnonymousParticipants = `
+		SELECT id, session_id, display_name, role, status, joined_at, left_at, expires_at
+		FROM anonymous_participants
+		WHERE session_id = $1
+		ORDER BY joined_at ASC
+	`
+
+	queryRemoveAnonymousParticipant = `
+		UPDATE anonymous_participants
+		SET status = 'left', left_at = NOW()
+		WHERE id = $1
+	`
+
+	queryGetAnonymousParticipantByID = `
+		SELECT id, session_id, display_name, role, status, joined_at, left_at, expires_at
+		FROM anonymous_participants
+		WHERE id = $1
+	`
+
+	// Invite token queries
+	queryCreateInviteToken = `
+		INSERT INTO invite_tokens (session_id, token, role, max_uses, expires_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, session_id, token, role, max_uses, uses_count, expires_at, created_at
+	`
+
+	queryListInviteTokens = `
+		SELECT id, session_id, token, role, max_uses, uses_count, expires_at, created_at
+		FROM invite_tokens
+		WHERE session_id = $1
+		ORDER BY created_at DESC
+	`
+
+	queryValidateInviteToken = `
+		SELECT id, session_id, token, role, max_uses, uses_count, expires_at, created_at
+		FROM invite_tokens
+		WHERE token = $1
+		AND (expires_at IS NULL OR expires_at > NOW())
+		AND (max_uses IS NULL OR uses_count < max_uses)
+	`
+
+	queryIncrementTokenUses = `
+		UPDATE invite_tokens
+		SET uses_count = uses_count + 1
+		WHERE id = $1
+	`
+
+	queryRevokeInviteToken = `
+		DELETE FROM invite_tokens
+		WHERE id = $1
+	`
+
+	// Message queries
+	queryGetMessages = `
+		SELECT id, session_id, user_id, role, message_type, content, created_at
+		FROM session_messages
+		WHERE session_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`
+
+	queryCreateMessage = `
+		INSERT INTO session_messages (session_id, user_id, role, message_type, content)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, session_id, user_id, role, message_type, content, created_at
+	`
+
+	queryAddMessage = `
+		INSERT INTO session_messages (session_id, user_id, role, message_type, content)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	queryUpdateLastActivity = `
+		UPDATE sessions
+		SET last_activity = NOW()
+		WHERE id = $1
+	`
+)

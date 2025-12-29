@@ -1,0 +1,106 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/algorave/server/internal/auth"
+	"github.com/algorave/server/internal/config"
+	"github.com/algorave/server/internal/logger"
+)
+
+// @title Algorave API
+// @version 1.0
+// @description AI-powered Strudel code generation and collaborative live coding platform
+// @description
+// @description Features:
+// @description - AI-powered Strudel code generation from natural language
+// @description - Real-time collaborative editing via WebSockets
+// @description - OAuth authentication (Google, GitHub)
+// @description - Anonymous session support
+// @description - Save and share Strudel patterns
+
+// @contact.name API Support
+// @contact.url https://github.com/algorave/server
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT token for authenticated requests. Format: Bearer {token}
+
+func main() {
+	logger.Info("starting algorave server")
+
+	// load configuration from environment
+	cfg, err := config.LoadEnvironmentVariables()
+	if err != nil {
+		logger.Fatal("failed to load configuration", "error", err)
+	}
+
+	// initialize OAuth providers
+	if err := auth.InitializeProviders(); err != nil {
+		logger.Fatal("failed to initialize OAuth providers", "error", err)
+	}
+
+	// create server with all dependencies
+	srv, err := NewServer(cfg)
+	if err != nil {
+		logger.Fatal("failed to create server", "error", err)
+	}
+
+	// get port from environment or use default
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	httpServer := &http.Server{
+		Addr:         fmt.Sprintf(":%s", port),
+		Handler:      srv.router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// start server in goroutine
+	go func() {
+		logger.Info("server listening", "port", port)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("server failed to start", "error", err)
+		}
+	}()
+
+	// start websocket hub
+	go srv.hub.Run()
+
+	// wait for interrupt signal for graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down server")
+
+	// graceful shutdown with 10 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(ctx); err != nil {
+		logger.Error("server forced to shutdown", "error", err)
+	}
+
+	// close database connection
+	srv.db.Close()
+
+	logger.Info("server stopped")
+}

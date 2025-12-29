@@ -98,4 +98,4 @@ db-migrate: ## apply pending migrations
 	@echo "✓ migrations applied"
 
 docs: ## generate API documentation
-	swag init -g cmd/server/main.go --output ./docs --parseDependency --parseInternal	
+	swag init -g cmd/server/main.go --output ./docs/openapi --parseDependency --parseInternal	
