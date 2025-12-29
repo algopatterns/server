@@ -12,7 +12,7 @@ const (
 	MessageTypeChat       = "chat"
 )
 
-// UUID for anonymous sessions (well-known pattern for system/default entities)
+// SystemUserID is the UUID for anonymous sessions (nil UUID pattern)
 const SystemUserID = "00000000-0000-0000-0000-000000000000"
 
 // repository interface for session database operations

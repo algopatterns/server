@@ -13,18 +13,14 @@ import (
 )
 
 // chunks and embeds teaching concept files from MDX
-func IngestConcepts(cfg *config.Config, _ *pgxpool.Pool, flags config.Flags) error {
+func IngestConcepts(cfg *config.Config, db *pgxpool.Pool, flags config.Flags) error {
 	ctx := context.Background()
 
 	logger.Info("starting concepts ingestion", "path", flags.Path, "clear", flags.Clear)
 
-	// create storage client
-	storageClient, err := storage.NewClient(ctx, cfg.SupabaseConnString)
-	if err != nil {
-		return fmt.Errorf("failed to create storage client: %w", err)
-	}
-
-	defer storageClient.Close()
+	// use shared connection pool
+	storageClient := storage.NewClientFromPool(db)
+	defer storageClient.Close() // no-op since we don't own the pool
 
 	// note: we don't clear all chunks here, as concepts share the same table as docs
 	// if clear flag is set, we would have already cleared in the docs ingestion

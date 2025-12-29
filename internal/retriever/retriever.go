@@ -39,8 +39,8 @@ func (c *Client) VectorSearch(ctx context.Context, queryText string, topK int) (
 	}
 
 	defer rows.Close()
-
 	var results []SearchResult
+
 	for rows.Next() {
 		var result SearchResult
 
@@ -79,8 +79,8 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 	}
 
 	defer rows.Close()
-
 	var results []ExampleResult
+
 	for rows.Next() {
 		var result ExampleResult
 
@@ -113,9 +113,10 @@ func (c *Client) BM25Search(ctx context.Context, queryText string, topK int) ([]
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute BM25 search: %w", err)
 	}
-	defer rows.Close()
 
+	defer rows.Close()
 	var results []SearchResult
+
 	for rows.Next() {
 		var result SearchResult
 		var rank float64
@@ -148,9 +149,10 @@ func (c *Client) BM25SearchExamples(ctx context.Context, queryText string, topK 
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute BM25 example search: %w", err)
 	}
-	defer rows.Close()
 
+	defer rows.Close()
 	var results []ExampleResult
+
 	for rows.Next() {
 		var result ExampleResult
 		var rank float64
@@ -217,6 +219,7 @@ func (c *Client) HybridSearchDocs(ctx context.Context, userQuery, _ string, topK
 	}
 
 	merged := mergeVectorAndBM25Docs(vectorResults, bm25Results, topK)
+
 	organized, err := c.organizeByPage(ctx, merged)
 	if err != nil {
 		return nil, fmt.Errorf("failed to organize results: %w", err)

@@ -15,21 +15,18 @@ import (
 )
 
 // loads and embeds code examples from a JSON file
-func IngestExamples(cfg *config.Config, _ *pgxpool.Pool, flags config.Flags) error {
+func IngestExamples(cfg *config.Config, db *pgxpool.Pool, flags config.Flags) error {
 	ctx := context.Background()
 	logger.Info("starting examples ingestion", "path", flags.Path, "clear", flags.Clear)
 
-	// create storage client
-	storageClient, err := storage.NewClient(ctx, cfg.SupabaseConnString)
-	if err != nil {
-		return fmt.Errorf("failed to create storage client: %w", err)
-	}
-
-	defer storageClient.Close()
+	// use shared connection pool
+	storageClient := storage.NewClientFromPool(db)
+	defer storageClient.Close() // no-op since we don't own the pool
 
 	// clear existing examples if requested
 	if flags.Clear {
 		logger.Info("clearing existing examples")
+
 		if err := storageClient.ClearAllExamples(ctx); err != nil {
 			return fmt.Errorf("failed to clear existing examples: %w", err)
 		}
