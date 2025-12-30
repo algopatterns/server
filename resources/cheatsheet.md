@@ -1,24 +1,6 @@
-# 🌀 STRUDEL QUICK REFERENCE CHEATSHEET
+# STRUDEL QUICK REFERENCE
 
-A complete reference guide to the Strudel live coding music language - an official port of Tidal Cycles to JavaScript.
-
----
-
-## TABLE OF CONTENTS
-
-1. [Quick Start](#quick-start)
-2. [Strudel Editor Syntax](#strudel-editor-syntax-important)
-3. [Mini-Notation Syntax](#mini-notation-syntax)
-4. [Sound Functions](#sound-functions)
-5. [Note & Pitch Functions](#note--pitch-functions)
-6. [Audio Effects](#audio-effects)
-7. [Time Modifiers](#time-modifiers)
-8. [Random Modifiers](#random-modifiers)
-9. [Tonal Functions](#tonal-functions)
-10. [Synths & Oscillators](#synths--oscillators)
-11. [Sampler Effects](#sampler-effects)
-12. [Pattern Functions](#pattern-functions)
-13. [Tips & Best Practices](#tips--best-practices)
+A complete reference for the Strudel live coding music language.
 
 ---
 
@@ -43,7 +25,7 @@ note("c4 d4 e4 f4")               // Play with octave
 setcpm(120)                       // Cycles per minute
 ```
 
-### CPM ↔ CPS Conversion Cheatsheet
+### CPM ↔ CPS ↔ BPM  Conversion Cheatsheet
 
 **Formula:**
 ```
@@ -60,15 +42,11 @@ BPM ≈ CPM × 4
 | 0.33 | 20 | 80 | Slow |
 | 0.5 | 30 | 120 | Moderate |
 | 0.67 | 40 | 160 | Medium-fast |
-| 1.0 | 60 | 240 | Fast |
-| 1.5 | 90 | 360 | Very fast |
-| 1.83 | 110 | 440 | Very fast |
-| 2.0 | 120 | 480 | Extremely fast |
+| 1.0 | 60 | 240 | Very Fast |
+| 1.5 | 90 | 360 | Extremely fast |
 
 **Examples:**
 ```javascript
-setcpm(110)   // Afrobeat tempo
-setcps(1.83)  // Same as above
 setcpm(30)    // 120 BPM equivalent
 setcps(0.5)   // Same as above
 ```
@@ -274,10 +252,10 @@ ViscoSpaceDrum
 ```javascript
 // Load from URLs
 samples({
-  bassdrum: 'bd/BT0AADA.wav',
-  hihat: 'hh27/000_hh27closedhh.wav',
-  snaredrum: ['sd/rytm-01-classic.wav', 'sd/rytm-00-hard.wav']
-}, 'https://raw.githubusercontent.com/tidalcycles/Dirt-Samples/master/')
+  bassdrum: 'bd/kit.wav',
+  hihat: 'hh27/closedhh.wav',
+  snaredrum: ['sd/classic.wav', 'sd/00-hard.wav']
+}, 'https://url/samples.com')
 
 // Load from GitHub
 samples('github:tidalcycles/dirt-samples')
@@ -698,19 +676,6 @@ sound("rhodes").loopAt(2)         // Fit sample into 2 cycles
 sound("breaks").fit()             // Fit to event duration
 ```
 
-### Advanced Loading
-```javascript
-// Load with pitch information
-samples({
-  moog: {
-    'g3': 'moog/005_Mighty%20Moog%20G3.wav'
-  }
-}, 'github:tidalcycles/dirt-samples')
-
-// Use Shabda for freesound samples
-samples('shabda:bass:4,hihat:4')
-```
-
 ---
 
 ## PATTERN FUNCTIONS
@@ -764,13 +729,6 @@ hpf = hp, hcutoff
 room = reverb
 ```
 
-### Keyboard Shortcuts
-```
-Ctrl+Enter  = Play/update pattern
-Ctrl+.      = Stop all sound
-Ctrl+Z      = Undo
-```
-
 ### Combining Parameters
 ```javascript
 note("c e g").sound("piano")
@@ -785,14 +743,6 @@ note("c e g").sound("piano")
 // Always use valid scale names:
 "C:major", "A:minor", "D:dorian", "G:mixolydian"
 "F:pentatonic", "Bb:blues"
-```
-
-### Tempo Guidelines
-```
-setcpm(30)  // Very slow (1 cycle = 2s)
-setcpm(60)  // Medium
-setcpm(120) // Fast
-setcpm(240) // Very fast
 ```
 
 ### Orbits & Mixing
