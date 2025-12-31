@@ -9,7 +9,7 @@ type TransferSessionRequest struct {
 
 // TransferSessionResponse returned after successful session transfer
 type TransferSessionResponse struct {
-	Message   string           `json:"message"`
+	Message   string            `json:"message"`
 	Strudel   *strudels.Strudel `json:"strudel"`
-	StrudelID string           `json:"strudel_id"`
+	StrudelID string            `json:"strudel_id"`
 }

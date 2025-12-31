@@ -8,8 +8,8 @@ import (
 )
 
 type Client struct {
-	pool      *pgxpool.Pool
-	ownsPool  bool // true if we created the pool and should close it
+	pool     *pgxpool.Pool
+	ownsPool bool // true if we created the pool and should close it
 }
 
 // NewClient creates a new storage client with its own connection pool

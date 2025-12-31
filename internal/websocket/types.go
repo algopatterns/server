@@ -160,7 +160,6 @@ type ServerShutdownPayload struct {
 	Reason string `json:"reason"`
 }
 
-
 // Client represents a WebSocket client connection
 type Client struct {
 	// unique identifier for this client
