@@ -49,5 +49,5 @@ docs/strudel
 # Logs
 *.log
 
-# development plans
-.brainstorm/
+# env config
+.envrc
