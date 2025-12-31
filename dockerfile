@@ -1,4 +1,4 @@
-FROM golang:1.24.5
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -6,7 +6,14 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 COPY . .
-RUN go build -o server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
+
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY --from=builder /app/server .
+COPY --from=builder /app/resources ./resources
 
 EXPOSE 8080
 

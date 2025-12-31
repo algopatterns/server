@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Documentation (but keep resources/)
+docs
+LICENSE
+README.md
+AGENTS.md
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Local development
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+bin
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+**/*_test.go
+coverage.out
+
+# CI/CD
+.github
+
+# Claude/AI
+.claude
+.brainstorm
+
+# Misc
+.DS_Store
+*.log
+tmp
