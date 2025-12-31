@@ -1,8 +1,8 @@
-name: Sync & Ingest Strudel Docs
+name: ingest-docs
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: '0 0 * * 0'  # Every Sunday at midnight
   workflow_dispatch:  # Manual trigger via GitHub UI
 
 jobs:
