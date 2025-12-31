@@ -88,28 +88,9 @@ The ingestion process will:
 
 **Note:** The `--clear` flag deletes all existing chunks from the database before ingesting. Use it when you want a fresh start.
 
-### Database Schema
-
-The migration in `supabase/migrations/20251224013556_init_schema.sql` creates:
-
-**Table: `doc_embeddings`**
-- `id` - UUID primary key
-- `page_name` - Source file path (e.g., "learn/notes.mdx")
-- `page_url` - Generated URL for the page
-- `section_title` - Section header within the document
-- `content` - The actual chunk text
-- `embedding` - Vector embedding (1536 dimensions, OpenAI text-embedding-3-small)
-- `metadata` - JSONB for frontmatter and custom metadata
-- `created_at` - Timestamp
-
-**Indexes:**
-- IVFFlat index on `embedding` for fast similarity search
-- B-tree index on `page_name` for lookups
-- B-tree index on `created_at` for maintenance
-
 ### Automated Ingestion
 
-The project includes a GitHub Actions workflow (`.github/workflows/ingest-docs.yml`) that:
+The project includes a GitHub Actions workflow (`.github/workflows/ingest.yml`) that:
 - Runs every 6 hours (configurable cron)
 - Clones the Strudel documentation from Codeberg
 - Runs the ingestion pipeline
