@@ -103,14 +103,20 @@ WebSocket Hub (in-memory, with Redis pub/sub planned for scaling)
 - `collaborative_sessions`: `id`, `host_user_id`, `title`, `code`, `is_active`
 - Session participants and invite tokens supported
 
-#### WebSocket Events
+#### WebSocket Message Types
 
-Client → Server: `join`, `code_update`, `promote`, `end_session`
-Server → Client: `user_joined`, `code_update`, `user_promoted`, `session_ended`, `user_left`
+- `code_update` - Code synchronization between participants
+- `agent_request` - Request AI code generation
+- `agent_response` - AI-generated code response
+- `chat_message` - Text chat between participants
+- `user_joined` / `user_left` - Presence notifications
+- `ping` / `pong` - Connection health checks
+- `error` - Error notifications
+- `server_shutdown` - Graceful shutdown signal
 
-### 5. Events & Scheduled Sessions (Phase 2)
+### 5. Events & Scheduled Sessions
 
-**Status**: Planned for future
+**Status**: Planned
 
 Scheduled live coding events with waiting rooms. `events` table: `id`, `host_user_id`, `title`, `scheduled_start`, `status`
 
@@ -130,5 +136,5 @@ Scheduled live coding events with waiting rooms. `events` table: `id`, `host_use
 
 ## Scalability
 
-Phase 1: In-memory WebSocket hub, single server
-Phase 2+: Redis pub/sub, horizontal scaling, read replicas
+**Current**: In-memory WebSocket hub, single server
+**Future**: Redis pub/sub, horizontal scaling, read replicas
