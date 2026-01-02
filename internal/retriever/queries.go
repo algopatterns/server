@@ -19,9 +19,9 @@ const (
 			description,
 			code,
 			tags,
-			url,
+			'' as url,
 			similarity
-		FROM search_examples($1, $2)
+		FROM search_user_strudels($1, $2)
 	`
 
 	bm25SearchDocsQuery = `
@@ -40,15 +40,19 @@ const (
 
 	bm25SearchExamplesQuery = `
 		SELECT
-			id,
-			title,
-			description,
-			code,
-			tags,
-			url,
-			ts_rank(searchable_tsvector, websearch_to_tsquery('english', $1)) as rank
-		FROM example_strudels
-		WHERE searchable_tsvector @@ websearch_to_tsquery('english', $1)
+			us.id,
+			us.title,
+			us.description,
+			us.code,
+			us.tags,
+			'' as url,
+			ts_rank(us.searchable_tsvector, websearch_to_tsquery('english', $1)) as rank
+		FROM user_strudels us
+		INNER JOIN users u ON us.user_id = u.id
+		WHERE us.searchable_tsvector @@ websearch_to_tsquery('english', $1)
+		  AND us.allow_training = true
+		  AND us.is_public = true
+		  AND u.training_consent = true
 		ORDER BY rank DESC
 		LIMIT $2
 	`

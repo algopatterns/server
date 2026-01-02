@@ -29,6 +29,7 @@ func (r *Repository) Create(
 		req.Title,
 		req.Code,
 		req.IsPublic,
+		req.AllowTraining,
 		req.Description,
 		req.Tags,
 		req.Categories,
@@ -39,6 +40,7 @@ func (r *Repository) Create(
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.AllowTraining,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -71,6 +73,7 @@ func (r *Repository) List(ctx context.Context, userID string) ([]Strudel, error)
 			&s.Title,
 			&s.Code,
 			&s.IsPublic,
+			&s.AllowTraining,
 			&s.Description,
 			&s.Tags,
 			&s.Categories,
@@ -108,6 +111,7 @@ func (r *Repository) ListPublic(ctx context.Context, limit int) ([]Strudel, erro
 			&s.Title,
 			&s.Code,
 			&s.IsPublic,
+			&s.AllowTraining,
 			&s.Description,
 			&s.Tags,
 			&s.Categories,
@@ -138,6 +142,7 @@ func (r *Repository) Get(ctx context.Context, strudelID, userID string) (*Strude
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.AllowTraining,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -166,6 +171,7 @@ func (r *Repository) Update(
 		req.Title,
 		req.Code,
 		req.IsPublic,
+		req.AllowTraining,
 		req.Description,
 		req.Tags,
 		req.Categories,
@@ -178,6 +184,7 @@ func (r *Repository) Update(
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.AllowTraining,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -204,4 +211,48 @@ func (r *Repository) Delete(ctx context.Context, strudelID, userID string) error
 	}
 
 	return nil
+}
+
+// ListTrainableWithoutEmbedding returns strudels that are trainable but don't have embeddings yet
+func (r *Repository) ListTrainableWithoutEmbedding(ctx context.Context, limit int) ([]Strudel, error) {
+	rows, err := r.db.Query(ctx, queryListTrainableWithoutEmbedding, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var strudels []Strudel
+	for rows.Next() {
+		var s Strudel
+		err := rows.Scan(
+			&s.ID,
+			&s.UserID,
+			&s.Title,
+			&s.Code,
+			&s.IsPublic,
+			&s.AllowTraining,
+			&s.Description,
+			&s.Tags,
+			&s.Categories,
+			&s.ConversationHistory,
+			&s.CreatedAt,
+			&s.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		strudels = append(strudels, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return strudels, nil
+}
+
+// UpdateEmbedding sets the embedding vector for a strudel
+func (r *Repository) UpdateEmbedding(ctx context.Context, strudelID string, embedding []float32) error {
+	_, err := r.db.Exec(ctx, queryUpdateEmbedding, embedding, strudelID)
+	return err
 }

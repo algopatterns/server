@@ -11,4 +11,6 @@ func RegisterRoutes(rg *gin.RouterGroup, db *pgxpool.Pool) {
 	users.Use(auth.AuthMiddleware()) // all user routes require authentication
 
 	users.GET("/usage", GetUsage(db))
+	users.PUT("/training-consent", UpdateTrainingConsent(db))
+	users.PUT("/ai-features-enabled", UpdateAIFeaturesEnabled(db))
 }

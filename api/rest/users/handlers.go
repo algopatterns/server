@@ -3,6 +3,7 @@ package users
 import (
 	"net/http"
 
+	"github.com/algoraveai/server/algorave/users"
 	"github.com/algoraveai/server/internal/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -93,5 +94,83 @@ func GetUsage(db *pgxpool.Pool) gin.HandlerFunc {
 			Remaining: remaining,
 			History:   history,
 		})
+	}
+}
+
+// UpdateTrainingConsent godoc
+// @Summary Update user's training consent
+// @Description Toggle whether the user's public strudels can be used for AI training
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param request body TrainingConsentRequest true "Consent data"
+// @Success 200 {object} users.User
+// @Failure 400 {object} errors.ErrorResponse
+// @Failure 401 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Router /api/v1/users/training-consent [put]
+// @Security BearerAuth
+func UpdateTrainingConsent(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetString("user_id")
+
+		if userID == "" {
+			errors.Unauthorized(c, "user not authenticated")
+			return
+		}
+
+		var req TrainingConsentRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			errors.ValidationError(c, err)
+			return
+		}
+
+		repo := users.NewRepository(db)
+		user, err := repo.UpdateTrainingConsent(c.Request.Context(), userID, req.TrainingConsent)
+		if err != nil {
+			errors.InternalError(c, "failed to update training consent", err)
+			return
+		}
+
+		c.JSON(http.StatusOK, user)
+	}
+}
+
+// UpdateAIFeaturesEnabled godoc
+// @Summary Update user's AI features setting
+// @Description Toggle whether AI features (prompt bar, code generation) are enabled for the user
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param request body AIFeaturesEnabledRequest true "AI features enabled data"
+// @Success 200 {object} users.User
+// @Failure 400 {object} errors.ErrorResponse
+// @Failure 401 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Router /api/v1/users/ai-features-enabled [put]
+// @Security BearerAuth
+func UpdateAIFeaturesEnabled(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetString("user_id")
+
+		if userID == "" {
+			errors.Unauthorized(c, "user not authenticated")
+			return
+		}
+
+		var req AIFeaturesEnabledRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			errors.ValidationError(c, err)
+			return
+		}
+
+		repo := users.NewRepository(db)
+		user, err := repo.UpdateAIFeaturesEnabled(c.Request.Context(), userID, req.AIFeaturesEnabled)
+		if err != nil {
+			errors.InternalError(c, "failed to update AI features enabled setting", err)
+			return
+		}
+
+		c.JSON(http.StatusOK, user)
 	}
 }

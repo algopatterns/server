@@ -24,15 +24,17 @@ type Repository struct {
 }
 
 type User struct {
-	ID         string    `json:"id"`
-	Email      string    `json:"email"`
-	Provider   string    `json:"provider"`
-	ProviderID string    `json:"-"`
-	Name       string    `json:"name"`
-	AvatarURL  string    `json:"avatar_url"`
-	Tier       string    `json:"-"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID                string    `json:"id"`
+	Email             string    `json:"email"`
+	Provider          string    `json:"provider"`
+	ProviderID        string    `json:"-"`
+	Name              string    `json:"name"`
+	AvatarURL         string    `json:"avatar_url"`
+	Tier              string    `json:"-"`
+	TrainingConsent   bool      `json:"training_consent"`
+	AIFeaturesEnabled bool      `json:"ai_features_enabled"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type UpdateProfileRequest struct {

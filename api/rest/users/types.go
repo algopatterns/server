@@ -12,3 +12,11 @@ type DailyUsage struct {
 	Date  string `json:"date"`  // Format: "2006-01-02"
 	Count int    `json:"count"` // Number of generations
 }
+
+type TrainingConsentRequest struct {
+	TrainingConsent bool `json:"training_consent"`
+}
+
+type AIFeaturesEnabledRequest struct {
+	AIFeaturesEnabled bool `json:"ai_features_enabled"`
+}

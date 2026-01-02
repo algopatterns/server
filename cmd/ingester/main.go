@@ -15,9 +15,8 @@ func main() {
 		fmt.Println("Usage: ingester <command> [options]")
 		fmt.Println("Commands:")
 		fmt.Println("  docs      - ingest documentation from markdown files")
-		fmt.Println("  examples  - ingest code examples from JSON file")
 		fmt.Println("  concepts  - ingest teaching concepts from MDX files")
-		fmt.Println("  all       - ingest everything (docs, examples, concepts)")
+		fmt.Println("  all       - ingest everything (docs, concepts)")
 		fmt.Println("\nOptions:")
 		fmt.Println("  --path <path>  - Custom path to ingest from")
 		fmt.Println("  --clear        - Clear existing data before ingesting")
@@ -55,12 +54,6 @@ func main() {
 			logger.Fatal("failed to ingest docs", "error", err)
 		}
 
-	case "examples":
-		flags := config.ParseExamplesFlags()
-		if err := IngestExamples(cfg, db, flags); err != nil {
-			logger.Fatal("failed to ingest examples", "error", err)
-		}
-
 	case "concepts":
 		flags := config.ParseConceptsFlags()
 		if err := IngestConcepts(cfg, db, flags); err != nil {
@@ -70,26 +63,20 @@ func main() {
 	case "all":
 		// use default flags for all subcommands
 		docsFlags := config.DefaultDocsFlags()
-		examplesFlags := config.DefaultExamplesFlags()
 		conceptsFlags := config.DefaultConceptsFlags()
 
 		// check for --clear flag
 		for _, arg := range os.Args[2:] {
 			if arg == "--clear" {
 				docsFlags.Clear = true
-				examplesFlags.Clear = true
 				conceptsFlags.Clear = true
 			}
 		}
 
-		logger.Info("ingesting all data (docs, examples, concepts)")
+		logger.Info("ingesting all data (docs, concepts)")
 
 		if err := IngestDocs(cfg, db, docsFlags); err != nil {
 			logger.Fatal("failed to ingest docs", "error", err)
-		}
-
-		if err := IngestExamples(cfg, db, examplesFlags); err != nil {
-			logger.Fatal("failed to ingest examples", "error", err)
 		}
 
 		if err := IngestConcepts(cfg, db, conceptsFlags); err != nil {

@@ -32,6 +32,8 @@ func (r *Repository) FindOrCreateByProvider(
 		&user.Name,
 		&user.AvatarURL,
 		&user.Tier,
+		&user.TrainingConsent,
+		&user.AIFeaturesEnabled,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -54,6 +56,8 @@ func (r *Repository) FindByID(ctx context.Context, userID string) (*User, error)
 		&user.Name,
 		&user.AvatarURL,
 		&user.Tier,
+		&user.TrainingConsent,
+		&user.AIFeaturesEnabled,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -85,6 +89,74 @@ func (r *Repository) UpdateProfile(
 		&user.Name,
 		&user.AvatarURL,
 		&user.Tier,
+		&user.TrainingConsent,
+		&user.AIFeaturesEnabled,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *Repository) UpdateTrainingConsent(
+	ctx context.Context,
+	userID string,
+	consent bool,
+) (*User, error) {
+	var user User
+
+	err := r.db.QueryRow(
+		ctx,
+		queryUpdateTrainingConsent,
+		consent,
+		userID,
+	).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Provider,
+		&user.ProviderID,
+		&user.Name,
+		&user.AvatarURL,
+		&user.Tier,
+		&user.TrainingConsent,
+		&user.AIFeaturesEnabled,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *Repository) UpdateAIFeaturesEnabled(
+	ctx context.Context,
+	userID string,
+	enabled bool,
+) (*User, error) {
+	var user User
+
+	err := r.db.QueryRow(
+		ctx,
+		queryUpdateAIFeaturesEnabled,
+		enabled,
+		userID,
+	).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Provider,
+		&user.ProviderID,
+		&user.Name,
+		&user.AvatarURL,
+		&user.Tier,
+		&user.TrainingConsent,
+		&user.AIFeaturesEnabled,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
