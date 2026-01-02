@@ -1849,7 +1849,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "tier": {
-                    "description": "\"free\", \"pro\", \"byok\"",
+                    "description": "\"free\", \"payg\", \"byok\"",
                     "type": "string"
                 },
                 "today": {

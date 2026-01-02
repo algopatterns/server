@@ -34,8 +34,8 @@ func NewClient(id, sessionID, userID, displayName, role, tier, ipAddress string,
 // returns the per-minute agent request limit based on user tier
 func (c *Client) getAgentRequestLimit() int {
 	switch c.Tier {
-	case "pro":
-		return users.MinuteLimitPro
+	case "payg":
+		return users.MinuteLimitPAYG
 	case "byok":
 		return users.MinuteLimitBYOK
 	default:

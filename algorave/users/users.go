@@ -113,8 +113,8 @@ func (r *Repository) CheckUserRateLimit(ctx context.Context, userID string, isBY
 
 	var limit int
 	switch user.Tier {
-	case "pro":
-		limit = DailyLimitPro
+	case "payg":
+		limit = DailyLimitPAYG
 	case "byok":
 		limit = DailyLimitBYOK
 	default:

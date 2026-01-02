@@ -47,7 +47,7 @@ func GetUsage(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		limit := 100
-		if tier == "pro" || tier == "byok" {
+		if tier == "payg" || tier == "byok" {
 			limit = -1
 		}
 

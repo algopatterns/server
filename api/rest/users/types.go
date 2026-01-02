@@ -1,7 +1,7 @@
 package users
 
 type UsageResponse struct {
-	Tier      string       `json:"tier"`      // "free", "pro", "byok"
+	Tier      string       `json:"tier"`      // "free", "payg", "byok"
 	Today     int          `json:"today"`     // Generations used today
 	Limit     int          `json:"limit"`     // Daily limit (-1 for unlimited)
 	Remaining int          `json:"remaining"` // Remaining generations today (-1 for unlimited)

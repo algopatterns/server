@@ -29,10 +29,10 @@ func TestAgentRequestRateLimitFreeTier(t *testing.T) {
 	}
 }
 
-// Test agent request rate limiting for pro tier (20/minute)
-func TestAgentRequestRateLimitProTier(t *testing.T) {
+// Test agent request rate limiting for payg tier (20/minute)
+func TestAgentRequestRateLimitPAYGTier(t *testing.T) {
 	client := &Client{
-		Tier:                   "pro",
+		Tier:                   "payg",
 		agentRequestTimestamps: make([]time.Time, 0, 20),
 	}
 
@@ -220,7 +220,7 @@ func TestGetAgentRequestLimit(t *testing.T) {
 		expected int
 	}{
 		{"free", 10},
-		{"pro", 20},
+		{"payg", 20},
 		{"byok", 30},
 		{"", 10},        // default
 		{"unknown", 10}, // unknown tier defaults to free

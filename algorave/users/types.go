@@ -9,13 +9,13 @@ import (
 const (
 	DailyLimitAnonymous = 50   // anonymous users: 50/day
 	DailyLimitFree      = 100  // free tier: 100/day
-	DailyLimitPro       = 1000 // pro tier: 1000/day
+	DailyLimitPAYG      = 1000 // payg tier: 1000/day (pay as you go)
 	DailyLimitBYOK      = -1   // BYOK: unlimited (using own keys)
 )
 
 const (
 	MinuteLimitDefault = 10 // default for all users
-	MinuteLimitPro     = 20 // pro tier
+	MinuteLimitPAYG    = 20 // payg tier
 	MinuteLimitBYOK    = 30 // BYOK
 )
 
