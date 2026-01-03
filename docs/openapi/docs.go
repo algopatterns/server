@@ -587,69 +587,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/sessions/transfer": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Convert an anonymous session to a saved strudel in authenticated user's account",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "sessions"
-                ],
-                "summary": "Transfer anonymous session",
-                "parameters": [
-                    {
-                        "description": "Transfer request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/sessions.TransferSessionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/sessions.TransferSessionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errors.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errors.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/errors.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/errors.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/sessions/{id}": {
             "get": {
                 "security": [
@@ -2259,35 +2196,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "userID": {
-                    "type": "string"
-                }
-            }
-        },
-        "sessions.TransferSessionRequest": {
-            "type": "object",
-            "required": [
-                "session_id",
-                "title"
-            ],
-            "properties": {
-                "session_id": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "sessions.TransferSessionResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "strudel": {
-                    "$ref": "#/definitions/strudels.Strudel"
-                },
-                "strudel_id": {
                     "type": "string"
                 }
             }

@@ -309,25 +309,6 @@ definitions:
       userID:
         type: string
     type: object
-  sessions.TransferSessionRequest:
-    properties:
-      session_id:
-        type: string
-      title:
-        type: string
-    required:
-    - session_id
-    - title
-    type: object
-  sessions.TransferSessionResponse:
-    properties:
-      message:
-        type: string
-      strudel:
-        $ref: '#/definitions/strudels.Strudel'
-      strudel_id:
-        type: string
-    type: object
   strudels.CreateStrudelRequest:
     properties:
       categories:
@@ -1343,47 +1324,6 @@ paths:
           schema:
             $ref: '#/definitions/errors.ErrorResponse'
       summary: List live sessions
-      tags:
-      - sessions
-  /api/v1/sessions/transfer:
-    post:
-      consumes:
-      - application/json
-      description: Convert an anonymous session to a saved strudel in authenticated
-        user's account
-      parameters:
-      - description: Transfer request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/sessions.TransferSessionRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/sessions.TransferSessionResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errors.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errors.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/errors.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/errors.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Transfer anonymous session
       tags:
       - sessions
   /api/v1/strudels:

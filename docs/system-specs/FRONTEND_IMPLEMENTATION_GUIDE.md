@@ -30,7 +30,6 @@ Use REST for **authenticated CRUD operations only**.
 | `PUT /api/v1/auth/me`                    | Required | Update profile                        |
 | `GET/POST/PUT/DELETE /api/v1/strudels/*` | Required | Strudel management                    |
 | `GET/POST/PUT/DELETE /api/v1/sessions/*` | Required | Session management                    |
-| `POST /api/v1/sessions/transfer`         | Required | Transfer anonymous session to strudel |
 | `PUT /api/v1/sessions/{id}/discoverable` | Required | Toggle session discoverability (host) |
 | `GET /api/v1/sessions/live`              | Public   | List discoverable live sessions       |
 | `GET /api/v1/public/strudels`            | Public   | Browse public strudels                |
@@ -44,12 +43,13 @@ Use WebSocket for **real-time session state and collaboration**.
 wss://algorave.ai/ws?session_id={uuid}&token={jwt}&display_name={name}
 ```
 
-| Parameter      | Required | Description                  |
-| -------------- | -------- | ---------------------------- |
-| `session_id`   | No       | Omit to create new session   |
-| `token`        | No       | JWT for authenticated users  |
-| `invite_token` | No       | For joining via invite link  |
-| `display_name` | No       | Display name (max 100 chars) |
+| Parameter             | Required | Description                                    |
+| --------------------- | -------- | ---------------------------------------------- |
+| `session_id`          | No       | Omit to create new session                     |
+| `previous_session_id` | No       | Copy code from this session when creating new  |
+| `token`               | No       | JWT for authenticated users                    |
+| `invite`              | No       | Invite token for joining via invite link       |
+| `display_name`        | No       | Display name (max 100 chars)                   |
 
 ## Session Flows
 
@@ -58,22 +58,23 @@ wss://algorave.ai/ws?session_id={uuid}&token={jwt}&display_name={name}
 ```
 1. Connect WebSocket (no token, no session_id)
    → Server creates anonymous session
-   → Returns session_id in welcome message
+   → Returns session_state with session_id
 
-2. Store session_id in localStorage/URL
-
-3. User codes solo via WebSocket
+2. User codes solo via WebSocket
    - Send: code_update, agent_request, chat
    - Receive: session_state, code_update, agent_response
 
-4. On page refresh:
-   → Reconnect WebSocket with stored session_id
-   → Receive session_state with current code
+3. On page refresh (anonymous users get fresh session):
+   → Clear stored session_id
+   → Connect WebSocket without session_id
+   → Get new anonymous session
 
-5. User decides to save work:
+4. User decides to log in:
    → Complete OAuth login
-   → Call POST /api/v1/sessions/transfer with session_id
-   → Session becomes a strudel in their account
+   → Reconnect WebSocket with token + previous_session_id=<old_session_id>
+   → Server creates authenticated session and copies code from old session
+   → Receive session_state with preserved code
+   → Use normal save flow to save as strudel
 ```
 
 ### Authenticated User Flow

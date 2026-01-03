@@ -5,7 +5,6 @@ import (
 	"github.com/algoraveai/server/api/rest/auth"
 	"github.com/algoraveai/server/api/rest/collaboration"
 	"github.com/algoraveai/server/api/rest/health"
-	restSessions "github.com/algoraveai/server/api/rest/sessions"
 	"github.com/algoraveai/server/api/rest/strudels"
 	"github.com/algoraveai/server/api/rest/users"
 	"github.com/algoraveai/server/api/websocket"
@@ -24,7 +23,6 @@ func RegisterRoutes(router *gin.Engine, server *Server) {
 
 		auth.RegisterRoutes(v1, server.userRepo)
 		strudels.RegisterRoutes(v1, server.strudelRepo)
-		restSessions.RegisterRoutes(v1, server.sessionRepo, server.strudelRepo)
 		collaboration.RegisterRoutes(v1, server.sessionRepo)
 		users.RegisterRoutes(v1, server.db)
 		admin.RegisterRoutes(v1, server.strudelRepo)
