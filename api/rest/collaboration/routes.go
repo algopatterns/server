@@ -7,7 +7,7 @@ import (
 	"github.com/algoraveai/server/internal/auth"
 )
 
-func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository) {
+func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository, sessionEnder SessionEnder) {
 	// public endpoints (no auth)
 	router.GET("/sessions/live", ListLiveSessionsHandler(sessionRepo))
 
@@ -16,7 +16,7 @@ func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository) {
 	router.GET("/sessions", auth.AuthMiddleware(), ListUserSessionsHandler(sessionRepo))
 	router.GET("/sessions/:id", auth.AuthMiddleware(), GetSessionHandler(sessionRepo))
 	router.PUT("/sessions/:id", auth.AuthMiddleware(), UpdateSessionCodeHandler(sessionRepo))
-	router.DELETE("/sessions/:id", auth.AuthMiddleware(), EndSessionHandler(sessionRepo))
+	router.DELETE("/sessions/:id", auth.AuthMiddleware(), EndSessionHandler(sessionRepo, sessionEnder))
 	router.POST("/sessions/:id/leave", auth.AuthMiddleware(), LeaveSessionHandler(sessionRepo))
 	router.PUT("/sessions/:id/discoverable", auth.AuthMiddleware(), SetDiscoverableHandler(sessionRepo))
 

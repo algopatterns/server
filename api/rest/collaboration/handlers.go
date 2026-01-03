@@ -261,7 +261,7 @@ func UpdateSessionCodeHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 // @Failure 500 {object} errors.ErrorResponse
 // @Router /api/v1/sessions/{id} [delete]
 // @Security BearerAuth
-func EndSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
+func EndSessionHandler(sessionRepo sessions.Repository, sessionEnder SessionEnder) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID, ok := errors.ValidatePathUUID(c, "id")
 		if !ok {
@@ -289,6 +289,11 @@ func EndSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		if err := sessionRepo.EndSession(c.Request.Context(), sessionID); err != nil {
 			errors.InternalError(c, "failed to end session", err)
 			return
+		}
+
+		// notify all WebSocket clients and close their connections
+		if sessionEnder != nil {
+			sessionEnder.EndSession(sessionID, "session ended by host")
 		}
 
 		c.JSON(http.StatusOK, MessageResponse{Message: "session ended successfully"})

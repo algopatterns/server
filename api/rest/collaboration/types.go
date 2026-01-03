@@ -6,6 +6,11 @@ import (
 	"github.com/algoraveai/server/algorave/sessions"
 )
 
+// allows ending WebSocket sessions
+type SessionEnder interface {
+	EndSession(sessionID string, reason string)
+}
+
 type CreateSessionRequest struct {
 	Title          string `json:"title" binding:"required,max=200"`
 	Code           string `json:"code" binding:"max=1048576"` // 1MB limit

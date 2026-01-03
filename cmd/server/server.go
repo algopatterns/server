@@ -63,6 +63,8 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	hub.RegisterHandler(ws.TypeCodeUpdate, ws.CodeUpdateHandler(sessionRepo))
 	hub.RegisterHandler(ws.TypeAgentRequest, ws.GenerateHandler(services.Agent, sessionRepo, userRepo))
 	hub.RegisterHandler(ws.TypeChatMessage, ws.ChatHandler(sessionRepo))
+	hub.RegisterHandler(ws.TypePlay, ws.PlayHandler())
+	hub.RegisterHandler(ws.TypeStop, ws.StopHandler())
 
 	router := gin.Default()
 

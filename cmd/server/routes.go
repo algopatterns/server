@@ -23,7 +23,7 @@ func RegisterRoutes(router *gin.Engine, server *Server) {
 
 		auth.RegisterRoutes(v1, server.userRepo)
 		strudels.RegisterRoutes(v1, server.strudelRepo)
-		collaboration.RegisterRoutes(v1, server.sessionRepo)
+		collaboration.RegisterRoutes(v1, server.sessionRepo, server.hub)
 		users.RegisterRoutes(v1, server.db)
 		admin.RegisterRoutes(v1, server.strudelRepo)
 		websocket.RegisterRoutes(v1, server.hub, server.sessionRepo, server.userRepo)

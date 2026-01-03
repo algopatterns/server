@@ -156,6 +156,34 @@ Send a chat message to the session.
 
 ---
 
+### `play`
+
+Start playback for all session participants. Requires `host` or `co-author` role.
+
+```json
+{
+  "type": "play",
+  "session_id": "uuid",
+  "payload": {}
+}
+```
+
+---
+
+### `stop`
+
+Stop playback for all session participants. Requires `host` or `co-author` role.
+
+```json
+{
+  "type": "stop",
+  "session_id": "uuid",
+  "payload": {}
+}
+```
+
+---
+
 ### `ping`
 
 Keep connection alive. Server responds with `pong`.
@@ -306,6 +334,64 @@ Sent when a user leaves the session.
   }
 }
 ```
+
+---
+
+### `play` (broadcast)
+
+Sent when host or co-author starts playback. Frontend should programmatically trigger Strudel play.
+
+```json
+{
+  "type": "play",
+  "session_id": "uuid",
+  "user_id": "uuid",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "payload": {
+    "display_name": "DJ Cool"
+  }
+}
+```
+
+---
+
+### `stop` (broadcast)
+
+Sent when host or co-author stops playback. Frontend should programmatically trigger Strudel stop.
+
+```json
+{
+  "type": "stop",
+  "session_id": "uuid",
+  "user_id": "uuid",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "payload": {
+    "display_name": "DJ Cool"
+  }
+}
+```
+
+---
+
+### `session_ended` (broadcast)
+
+Sent when the host ends the session. Connection will be closed shortly after.
+
+```json
+{
+  "type": "session_ended",
+  "session_id": "uuid",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "payload": {
+    "reason": "session ended by host"
+  }
+}
+```
+
+Frontend should handle this by:
+- Showing a "session ended" notification
+- Switching to offline/replay mode where viewer can control their own playback
+- Optionally offering to fork the final code
 
 ---
 

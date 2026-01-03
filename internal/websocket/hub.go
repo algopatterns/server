@@ -389,3 +389,84 @@ func (h *Hub) UntrackIPConnection(ipAddress string) {
 		delete(h.ipConnections, ipAddress)
 	}
 }
+
+// broadcasts session_ended to all clients and closes their connections
+func (h *Hub) EndSession(sessionID string, reason string) {
+	h.mu.Lock()
+
+	sessionClients, exists := h.sessions[sessionID]
+	if !exists {
+		h.mu.Unlock()
+		return
+	}
+
+	logger.Info("ending session, notifying clients",
+		"session_id", sessionID,
+		"client_count", len(sessionClients),
+	)
+
+	// send session_ended notification to all clients
+	sessionEndedMsg, err := NewMessage(TypeSessionEnded, sessionID, "", SessionEndedPayload{
+		Reason: reason,
+	})
+	if err != nil {
+		logger.ErrorErr(err, "failed to create session_ended message",
+			"session_id", sessionID,
+		)
+		h.mu.Unlock()
+		return
+	}
+
+	for _, client := range sessionClients {
+		if err := client.Send(sessionEndedMsg); err != nil {
+			logger.ErrorErr(err, "failed to send session_ended notification",
+				"client_id", client.ID,
+				"session_id", sessionID,
+			)
+		}
+	}
+
+	h.mu.Unlock()
+
+	// give clients time to receive the message
+	time.Sleep(100 * time.Millisecond)
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// close all connections for this session
+	sessionClients, exists = h.sessions[sessionID]
+	if !exists {
+		return
+	}
+
+	for clientID, client := range sessionClients {
+		// update connection tracking
+		if client.UserID != "" {
+			h.userConnections[client.UserID]--
+			if h.userConnections[client.UserID] <= 0 {
+				delete(h.userConnections, client.UserID)
+			}
+		}
+		if client.IPAddress != "" {
+			h.ipConnections[client.IPAddress]--
+			if h.ipConnections[client.IPAddress] <= 0 {
+				delete(h.ipConnections, client.IPAddress)
+			}
+		}
+
+		client.Close()
+		logger.Debug("closed client due to session end",
+			"client_id", clientID,
+			"session_id", sessionID,
+		)
+	}
+
+	// remove session from hub
+	delete(h.sessions, sessionID)
+	delete(h.sessionSequences, sessionID)
+
+	logger.Info("session ended and removed",
+		"session_id", sessionID,
+	)
+}

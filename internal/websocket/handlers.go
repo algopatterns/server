@@ -293,6 +293,80 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 	}
 }
 
+// handles play messages from host/co-author
+func PlayHandler() MessageHandler {
+	return func(hub *Hub, client *Client, msg *Message) error {
+		// check if client has write permissions (host or co-author)
+		if !client.CanWrite() {
+			client.SendError("forbidden", "only host and co-authors can control playback", "")
+			return ErrReadOnly
+		}
+
+		// create broadcast payload with display name
+		payload := PlayPayload{
+			DisplayName: client.DisplayName,
+		}
+
+		// create broadcast message
+		broadcastMsg, err := NewMessage(TypePlay, client.SessionID, client.UserID, payload)
+		if err != nil {
+			logger.ErrorErr(err, "failed to create play broadcast message",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+			return err
+		}
+
+		// broadcast to all clients in the session (including sender for confirmation)
+		hub.BroadcastToSession(client.SessionID, broadcastMsg, "")
+
+		logger.Info("playback started",
+			"client_id", client.ID,
+			"session_id", client.SessionID,
+			"display_name", client.DisplayName,
+		)
+
+		return nil
+	}
+}
+
+// handles stop messages from host/co-author
+func StopHandler() MessageHandler {
+	return func(hub *Hub, client *Client, msg *Message) error {
+		// check if client has write permissions (host or co-author)
+		if !client.CanWrite() {
+			client.SendError("forbidden", "only host and co-authors can control playback", "")
+			return ErrReadOnly
+		}
+
+		// create broadcast payload with display name
+		payload := StopPayload{
+			DisplayName: client.DisplayName,
+		}
+
+		// create broadcast message
+		broadcastMsg, err := NewMessage(TypeStop, client.SessionID, client.UserID, payload)
+		if err != nil {
+			logger.ErrorErr(err, "failed to create stop broadcast message",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+			return err
+		}
+
+		// broadcast to all clients in the session (including sender for confirmation)
+		hub.BroadcastToSession(client.SessionID, broadcastMsg, "")
+
+		logger.Info("playback stopped",
+			"client_id", client.ID,
+			"session_id", client.SessionID,
+			"display_name", client.DisplayName,
+		)
+
+		return nil
+	}
+}
+
 // handles session chat message messages
 func ChatHandler(sessionRepo sessions.Repository) MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {

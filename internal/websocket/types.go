@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Message type constants for WebSocket communication
+// message type constants for webSocket communication
 const (
 	// is sent when a user updates the code
 	TypeCodeUpdate = "code_update"
@@ -43,9 +43,18 @@ const (
 
 	// is sent to connecting client with session info
 	TypeSessionState = "session_state"
+
+	// is sent when host/co-author starts playback
+	TypePlay = "play"
+
+	// is sent when host/co-author stops playback
+	TypeStop = "stop"
+
+	// is sent when host ends the session
+	TypeSessionEnded = "session_ended"
 )
 
-// Client connection constants
+// client connection constants
 const (
 	// time allowed to write a message to the peer
 	writeWait = 10 * time.Second
@@ -69,13 +78,13 @@ const (
 	maxChatMessageSize = 5000       // 5000 characters maximum chat message size
 )
 
-// Hub connection limit constants
+// hub connection limit constants
 const (
 	maxConnectionsPerUser = 5
 	maxConnectionsPerIP   = 10
 )
 
-// Errors
+// errors
 var (
 	ErrSessionNotFound         = errors.New("session not found")
 	ErrUnauthorized            = errors.New("unauthorized")
@@ -89,7 +98,7 @@ var (
 	ErrCodeTooLarge            = errors.New("code too large")
 )
 
-// Message represents a websocket message with typed payload
+// represents a websocket message with typed payload
 type Message struct {
 	Type      string          `json:"type"`
 	SessionID string          `json:"session_id"`
@@ -100,7 +109,7 @@ type Message struct {
 	Payload   json.RawMessage `json:"payload"`
 }
 
-// CodeUpdatePayload contains code update information
+// contains code update information
 type CodeUpdatePayload struct {
 	Code        string `json:"code"`
 	CursorLine  int    `json:"cursor_line,omitempty"`
@@ -108,20 +117,20 @@ type CodeUpdatePayload struct {
 	DisplayName string `json:"display_name,omitempty"`
 }
 
-// UserJoinedPayload contains information about a newly joined user
+// contains information about a newly joined user
 type UserJoinedPayload struct {
 	UserID      string `json:"user_id,omitempty"`
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"` // "host", "co-author", "viewer"
 }
 
-// UserLeftPayload contains information about a user who left
+// contains information about a user who left
 type UserLeftPayload struct {
 	UserID      string `json:"user_id,omitempty"`
 	DisplayName string `json:"display_name"`
 }
 
-// AgentRequestPayload contains a code generation request
+// contains a code generation request
 type AgentRequestPayload struct {
 	UserQuery           string `json:"user_query"`
 	EditorState         string `json:"editor_state,omitempty"` // Private, not broadcasted
@@ -134,7 +143,7 @@ type AgentRequestPayload struct {
 	DisplayName    string `json:"display_name,omitempty"`     // Added by server for broadcasting
 }
 
-// AgentResponsePayload contains the agent's code generation response
+// contains the agent's code generation response
 type AgentResponsePayload struct {
 	Code                string     `json:"code,omitempty"`
 	DocsRetrieved       int        `json:"docs_retrieved"`
@@ -145,39 +154,54 @@ type AgentResponsePayload struct {
 	RateLimit           *RateLimit `json:"rate_limit,omitempty"`
 }
 
-// RateLimit contains rate limit status for the client
+// contains rate limit status for the client
 type RateLimit struct {
 	RequestsRemaining int `json:"requests_remaining"`
 	RequestsLimit     int `json:"requests_limit"`
 	ResetSeconds      int `json:"reset_seconds"`
 }
 
-// ChatMessagePayload contains a chat message from a user
+// contains a chat message from a user
 type ChatMessagePayload struct {
 	Message     string `json:"message"`
 	DisplayName string `json:"display_name,omitempty"`
 }
 
-// ServerShutdownPayload contains information about server shutdown
+// contains information about server shutdown
 type ServerShutdownPayload struct {
 	Reason string `json:"reason"`
 }
 
-// SessionStatePayload contains session info sent to connecting client
+// contains session info sent to connecting client
 type SessionStatePayload struct {
 	Code         string                    `json:"code"`
 	YourRole     string                    `json:"your_role"`
 	Participants []SessionStateParticipant `json:"participants"`
 }
 
-// SessionStateParticipant represents a participant in session_state
+// represents a participant in session_state
 type SessionStateParticipant struct {
 	UserID      string `json:"user_id,omitempty"`
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
 }
 
-// Client represents a WebSocket client connection
+// contains playback start information
+type PlayPayload struct {
+	DisplayName string `json:"display_name"`
+}
+
+// contains playback stop information
+type StopPayload struct {
+	DisplayName string `json:"display_name"`
+}
+
+// contains session termination information
+type SessionEndedPayload struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+// represents a WebSocket client connection
 type Client struct {
 	// unique identifier for this client
 	ID string
@@ -231,7 +255,7 @@ type Client struct {
 	chatMessageTimestamps []time.Time
 }
 
-// Hub maintains the set of active clients and broadcasts messages to sessions
+// maintains the set of active clients and broadcasts messages to sessions
 type Hub struct {
 	// registered clients by session ID and client ID
 	sessions map[string]map[string]*Client
