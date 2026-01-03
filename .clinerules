@@ -34,8 +34,8 @@ if err := processFile(f); err != nil {
     return fmt.Errorf("failed to process %s: %w", f, err)
 }
 ```
-- Always wrap errors with context
 - Use early returns
+- Always wrap errors with context
 - Never ignore errors silently
 
 ### Testing
