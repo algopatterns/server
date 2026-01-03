@@ -218,6 +218,35 @@ func ListPublicStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc
 	}
 }
 
+// GetPublicStrudelHandler godoc
+// @Summary Get public strudel by ID
+// @Description Get a publicly shared strudel by its ID (for forking)
+// @Tags strudels
+// @Produce json
+// @Param id path string true "Strudel ID (UUID)"
+// @Success 200 {object} strudels.Strudel
+// @Failure 404 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Router /api/v1/public/strudels/{id} [get]
+func GetPublicStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strudelID := c.Param("id")
+
+		if !errors.IsValidUUID(strudelID) {
+			errors.BadRequest(c, "invalid strudel ID format", nil)
+			return
+		}
+
+		strudel, err := strudelRepo.GetPublic(c.Request.Context(), strudelID)
+		if err != nil {
+			errors.NotFound(c, "strudel")
+			return
+		}
+
+		c.JSON(http.StatusOK, strudel)
+	}
+}
+
 func parseInt(s string) (int, error) {
 	var i int
 	_, err := fmt.Sscanf(s, "%d", &i)

@@ -22,6 +22,19 @@ func (r *Repository) Create(
 ) (*Strudel, error) {
 	var strudel Strudel
 
+	// initialize empty arrays if nil to avoid null in JSON responses
+	tags := req.Tags
+
+	if tags == nil {
+		tags = []string{}
+	}
+
+	categories := req.Categories
+
+	if categories == nil {
+		categories = []string{}
+	}
+
 	err := r.db.QueryRow(
 		ctx,
 		queryCreate,
@@ -30,8 +43,8 @@ func (r *Repository) Create(
 		req.Code,
 		req.IsPublic,
 		req.Description,
-		req.Tags,
-		req.Categories,
+		tags,
+		categories,
 		req.ConversationHistory,
 	).Scan(
 		&strudel.ID,
@@ -130,6 +143,31 @@ func (r *Repository) ListPublic(ctx context.Context, limit int) ([]Strudel, erro
 	}
 
 	return strudels, nil
+}
+
+func (r *Repository) GetPublic(ctx context.Context, strudelID string) (*Strudel, error) {
+	var strudel Strudel
+
+	err := r.db.QueryRow(ctx, queryGetPublic, strudelID).Scan(
+		&strudel.ID,
+		&strudel.UserID,
+		&strudel.Title,
+		&strudel.Code,
+		&strudel.IsPublic,
+		&strudel.UseInTraining,
+		&strudel.Description,
+		&strudel.Tags,
+		&strudel.Categories,
+		&strudel.ConversationHistory,
+		&strudel.CreatedAt,
+		&strudel.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &strudel, nil
 }
 
 func (r *Repository) Get(ctx context.Context, strudelID, userID string) (*Strudel, error) {

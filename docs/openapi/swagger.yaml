@@ -740,6 +740,33 @@ paths:
       summary: List public strudels
       tags:
       - strudels
+  /api/v1/public/strudels/{id}:
+    get:
+      description: Get a publicly shared strudel by its ID (for forking)
+      parameters:
+      - description: Strudel ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/strudels.Strudel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.ErrorResponse'
+      summary: Get public strudel by ID
+      tags:
+      - strudels
   /api/v1/sessions:
     get:
       description: Get all sessions where user is host or participant

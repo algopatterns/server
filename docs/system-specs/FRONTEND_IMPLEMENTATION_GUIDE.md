@@ -33,6 +33,7 @@ Use REST for **authenticated CRUD operations only**.
 | `PUT /api/v1/sessions/{id}/discoverable` | Required | Toggle session discoverability (host) |
 | `GET /api/v1/sessions/live`              | Public   | List discoverable live sessions       |
 | `GET /api/v1/public/strudels`            | Public   | Browse public strudels                |
+| `GET /api/v1/public/strudels/:id`        | Public   | Get public strudel by ID (for forking)|
 | `POST /api/v1/sessions/join`             | Optional | Join session with invite token        |
 
 ### WebSocket

@@ -24,6 +24,12 @@ const (
 		LIMIT $1
 	`
 
+	queryGetPublic = `
+		SELECT id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
+		FROM user_strudels
+		WHERE id = $1 AND is_public = true
+	`
+
 	queryGet = `
 		SELECT id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
 		FROM user_strudels

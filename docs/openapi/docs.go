@@ -394,6 +394,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/public/strudels/{id}": {
+            "get": {
+                "description": "Get a publicly shared strudel by its ID (for forking)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "strudels"
+                ],
+                "summary": "Get public strudel by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Strudel ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/strudels.Strudel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/sessions": {
             "get": {
                 "security": [

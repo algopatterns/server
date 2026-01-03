@@ -19,4 +19,5 @@ func RegisterRoutes(router *gin.RouterGroup, strudelRepo *strudels.Repository) {
 
 	// public strudels (no auth required)
 	router.GET("/public/strudels", ListPublicStrudelsHandler(strudelRepo))
+	router.GET("/public/strudels/:id", GetPublicStrudelHandler(strudelRepo))
 }
