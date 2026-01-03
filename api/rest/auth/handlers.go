@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/url"
 	"slices"
@@ -12,8 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth/gothic"
 )
-
-const redirectURLSessionKey = "auth_redirect_url"
 
 // BeginAuthHandler godoc
 // @Summary Start OAuth authentication
@@ -33,20 +32,15 @@ func BeginAuthHandler(_ *users.Repository) gin.HandlerFunc {
 			return
 		}
 
-		// store redirect URL in session for use after callback
-		if redirectURL := c.Query("redirect_url"); redirectURL != "" {
-			session, err := gothic.Store.Get(c.Request, gothic.SessionName)
-			if err == nil {
-				session.Values[redirectURLSessionKey] = redirectURL
-				if err := session.Save(c.Request, c.Writer); err != nil {
-					logger.ErrorErr(err, "failed to save redirect URL to session")
-				}
-			}
-		}
-
-		// set provider in query for gothic
 		q := c.Request.URL.Query()
 		q.Add("provider", provider)
+
+		// encode redirect URL in OAuth state parameter (survives the OAuth redirect)
+		if redirectURL := c.Query("redirect_url"); redirectURL != "" {
+			state := base64.URLEncoding.EncodeToString([]byte(redirectURL))
+			q.Set("state", state)
+		}
+
 		c.Request.URL.RawQuery = q.Encode()
 
 		gothic.BeginAuthHandler(c.Writer, c.Request)
@@ -68,13 +62,16 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		provider := c.Param("provider")
 
+		// extract redirect URL from state before gothic processes it
+		redirectURL := extractRedirectURL(c.Query("state"))
+
 		q := c.Request.URL.Query()
 		q.Add("provider", provider)
 		c.Request.URL.RawQuery = q.Encode()
 
 		gothUser, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 		if err != nil {
-			handleAuthError(c, "authentication failed", err)
+			handleAuthError(c, redirectURL, "authentication failed", err)
 			return
 		}
 
@@ -88,35 +85,25 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 		)
 
 		if err != nil {
-			handleAuthError(c, "failed to create user", err)
+			handleAuthError(c, redirectURL, "failed to create user", err)
 			return
 		}
 
 		token, err := auth.GenerateJWT(user.ID, user.Email, user.IsAdmin)
 		if err != nil {
-			handleAuthError(c, "failed to generate token", err)
+			handleAuthError(c, redirectURL, "failed to generate token", err)
 			return
 		}
 
-		// check for redirect URL in session
-		session, err := gothic.Store.Get(c.Request, gothic.SessionName)
-		if err == nil {
-			if redirectURL, ok := session.Values[redirectURLSessionKey].(string); ok && redirectURL != "" {
-				// clear the redirect URL from session
-				delete(session.Values, redirectURLSessionKey)
-				if err := session.Save(c.Request, c.Writer); err != nil {
-					logger.ErrorErr(err, "failed to clear redirect URL from session")
-				}
-
-				// append token to redirect URL
-				parsedURL, err := url.Parse(redirectURL)
-				if err == nil {
-					query := parsedURL.Query()
-					query.Set("token", token)
-					parsedURL.RawQuery = query.Encode()
-					c.Redirect(http.StatusTemporaryRedirect, parsedURL.String())
-					return
-				}
+		// redirect to original URL with token if available
+		if redirectURL != "" {
+			parsedURL, err := url.Parse(redirectURL)
+			if err == nil {
+				query := parsedURL.Query()
+				query.Set("token", token)
+				parsedURL.RawQuery = query.Encode()
+				c.Redirect(http.StatusTemporaryRedirect, parsedURL.String())
+				return
 			}
 		}
 
@@ -128,24 +115,28 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 	}
 }
 
-// handleAuthError redirects to the original URL with error params, or returns JSON error
-func handleAuthError(c *gin.Context, message string, err error) {
-	session, sessionErr := gothic.Store.Get(c.Request, gothic.SessionName)
-	if sessionErr == nil {
-		if redirectURL, ok := session.Values[redirectURLSessionKey].(string); ok && redirectURL != "" {
-			delete(session.Values, redirectURLSessionKey)
-			if saveErr := session.Save(c.Request, c.Writer); saveErr != nil {
-				logger.ErrorErr(saveErr, "failed to clear redirect URL from session")
-			}
+// extractRedirectURL decodes the redirect URL from the OAuth state parameter
+func extractRedirectURL(state string) string {
+	if state == "" {
+		return ""
+	}
+	decoded, err := base64.URLEncoding.DecodeString(state)
+	if err != nil {
+		return ""
+	}
+	return string(decoded)
+}
 
-			parsedURL, parseErr := url.Parse(redirectURL)
-			if parseErr == nil {
-				query := parsedURL.Query()
-				query.Set("error", message)
-				parsedURL.RawQuery = query.Encode()
-				c.Redirect(http.StatusTemporaryRedirect, parsedURL.String())
-				return
-			}
+// handleAuthError redirects to the original URL with error params, or returns JSON error
+func handleAuthError(c *gin.Context, redirectURL, message string, err error) {
+	if redirectURL != "" {
+		parsedURL, parseErr := url.Parse(redirectURL)
+		if parseErr == nil {
+			query := parsedURL.Query()
+			query.Set("error", message)
+			parsedURL.RawQuery = query.Encode()
+			c.Redirect(http.StatusTemporaryRedirect, parsedURL.String())
+			return
 		}
 	}
 
