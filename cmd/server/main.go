@@ -101,6 +101,11 @@ func main() {
 		logger.Error("server forced to shutdown", "error", err)
 	}
 
+	// close validator if running
+	if srv.services.Validator != nil {
+		srv.services.Validator.Close() //nolint:errcheck,gosec // best-effort cleanup on shutdown
+	}
+
 	// close database connection
 	srv.db.Close()
 

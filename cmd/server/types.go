@@ -9,6 +9,7 @@ import (
 	"github.com/algoraveai/server/internal/llm"
 	"github.com/algoraveai/server/internal/retriever"
 	"github.com/algoraveai/server/internal/storage"
+	"github.com/algoraveai/server/internal/strudel"
 	ws "github.com/algoraveai/server/internal/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,4 +33,5 @@ type Services struct {
 	LLM       llm.LLM
 	Retriever *retriever.Client
 	Storage   *storage.Client
+	Validator *strudel.Validator
 }
