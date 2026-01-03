@@ -2,7 +2,7 @@ package auth
 
 import (
 	"net/http"
-
+	"net/url"
 	"slices"
 
 	"github.com/algoraveai/server/algorave/users"
@@ -13,11 +13,14 @@ import (
 	"github.com/markbates/goth/gothic"
 )
 
+const redirectURLSessionKey = "auth_redirect_url"
+
 // BeginAuthHandler godoc
 // @Summary Start OAuth authentication
 // @Description Begin OAuth authentication flow with specified provider (google, github, apple)
 // @Tags auth
 // @Param provider path string true "OAuth provider" Enums(google, github, apple)
+// @Param redirect_url query string false "URL to redirect to after authentication"
 // @Success 302 {string} string "Redirect to OAuth provider"
 // @Failure 400 {object} errors.ErrorResponse
 // @Router /api/v1/auth/{provider} [get]
@@ -28,6 +31,17 @@ func BeginAuthHandler(_ *users.Repository) gin.HandlerFunc {
 		if !isValidProvider(provider) {
 			errors.BadRequest(c, "invalid provider", nil)
 			return
+		}
+
+		// store redirect URL in session for use after callback
+		if redirectURL := c.Query("redirect_url"); redirectURL != "" {
+			session, err := gothic.Store.Get(c.Request, gothic.SessionName)
+			if err == nil {
+				session.Values[redirectURLSessionKey] = redirectURL
+				if err := session.Save(c.Request, c.Writer); err != nil {
+					logger.ErrorErr(err, "failed to save redirect URL to session")
+				}
+			}
 		}
 
 		// set provider in query for gothic
@@ -41,10 +55,11 @@ func BeginAuthHandler(_ *users.Repository) gin.HandlerFunc {
 
 // CallbackHandler godoc
 // @Summary OAuth callback
-// @Description OAuth provider callback. Returns user data and JWT token
+// @Description OAuth provider callback. Redirects to original URL with token, or returns JSON if no redirect URL
 // @Tags auth
 // @Produce json
 // @Param provider path string true "OAuth provider" Enums(google, github, apple)
+// @Success 302 {string} string "Redirect to original URL with token"
 // @Success 200 {object} AuthResponse
 // @Failure 400 {object} errors.ErrorResponse
 // @Failure 500 {object} errors.ErrorResponse
@@ -59,7 +74,7 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 
 		gothUser, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 		if err != nil {
-			errors.InternalError(c, "authentication failed", err)
+			handleAuthError(c, "authentication failed", err)
 			return
 		}
 
@@ -73,21 +88,68 @@ func CallbackHandler(userRepo *users.Repository) gin.HandlerFunc {
 		)
 
 		if err != nil {
-			errors.InternalError(c, "failed to create user", err)
+			handleAuthError(c, "failed to create user", err)
 			return
 		}
 
 		token, err := auth.GenerateJWT(user.ID, user.Email, user.IsAdmin)
 		if err != nil {
-			errors.InternalError(c, "failed to generate token", err)
+			handleAuthError(c, "failed to generate token", err)
 			return
 		}
 
+		// check for redirect URL in session
+		session, err := gothic.Store.Get(c.Request, gothic.SessionName)
+		if err == nil {
+			if redirectURL, ok := session.Values[redirectURLSessionKey].(string); ok && redirectURL != "" {
+				// clear the redirect URL from session
+				delete(session.Values, redirectURLSessionKey)
+				if err := session.Save(c.Request, c.Writer); err != nil {
+					logger.ErrorErr(err, "failed to clear redirect URL from session")
+				}
+
+				// append token to redirect URL
+				parsedURL, err := url.Parse(redirectURL)
+				if err == nil {
+					query := parsedURL.Query()
+					query.Set("token", token)
+					parsedURL.RawQuery = query.Encode()
+					c.Redirect(http.StatusTemporaryRedirect, parsedURL.String())
+					return
+				}
+			}
+		}
+
+		// fallback to JSON response if no redirect URL
 		c.JSON(http.StatusOK, AuthResponse{
 			User:  user,
 			Token: token,
 		})
 	}
+}
+
+// handleAuthError redirects to the original URL with error params, or returns JSON error
+func handleAuthError(c *gin.Context, message string, err error) {
+	session, sessionErr := gothic.Store.Get(c.Request, gothic.SessionName)
+	if sessionErr == nil {
+		if redirectURL, ok := session.Values[redirectURLSessionKey].(string); ok && redirectURL != "" {
+			delete(session.Values, redirectURLSessionKey)
+			if saveErr := session.Save(c.Request, c.Writer); saveErr != nil {
+				logger.ErrorErr(saveErr, "failed to clear redirect URL from session")
+			}
+
+			parsedURL, parseErr := url.Parse(redirectURL)
+			if parseErr == nil {
+				query := parsedURL.Query()
+				query.Set("error", message)
+				parsedURL.RawQuery = query.Encode()
+				c.Redirect(http.StatusTemporaryRedirect, parsedURL.String())
+				return
+			}
+		}
+	}
+
+	errors.InternalError(c, message, err)
 }
 
 // GetCurrentUserHandler godoc
@@ -169,6 +231,7 @@ func LogoutHandler() gin.HandlerFunc {
 		if err := gothic.Logout(c.Writer, c.Request); err != nil {
 			logger.ErrorErr(err, "failed to logout user from gothic session")
 		}
+
 		c.JSON(http.StatusOK, MessageResponse{Message: "logged out successfully"})
 	}
 }
