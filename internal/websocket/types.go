@@ -40,6 +40,9 @@ const (
 
 	// is sent by server before shutdown
 	TypeServerShutdown = "server_shutdown"
+
+	// is sent to connecting client with session info
+	TypeSessionState = "session_state"
 )
 
 // Client connection constants
@@ -160,6 +163,20 @@ type ServerShutdownPayload struct {
 	Reason string `json:"reason"`
 }
 
+// SessionStatePayload contains session info sent to connecting client
+type SessionStatePayload struct {
+	Code         string                    `json:"code"`
+	YourRole     string                    `json:"your_role"`
+	Participants []SessionStateParticipant `json:"participants"`
+}
+
+// SessionStateParticipant represents a participant in session_state
+type SessionStateParticipant struct {
+	UserID      string `json:"user_id,omitempty"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"`
+}
+
 // Client represents a WebSocket client connection
 type Client struct {
 	// unique identifier for this client
@@ -185,6 +202,9 @@ type Client struct {
 
 	// IP address of the client (for connection tracking)
 	IPAddress string
+
+	// initial code to send on connect (for joining existing sessions)
+	InitialCode string
 
 	// webSocket connection
 	conn *websocket.Conn

@@ -208,7 +208,8 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 		hub.TrackIPConnection(ipAddress)
 
 		isAuthenticated := userID != ""
-		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, tier, ipAddress, isAuthenticated, conn, hub)
+		initialCode := session.Code
+		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, tier, ipAddress, initialCode, isAuthenticated, conn, hub)
 
 		// add participant to session (authenticated or anonymous)
 		// note: anonymous hosts are not added to participants table as they're already tracked via the session itself

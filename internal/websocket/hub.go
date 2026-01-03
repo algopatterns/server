@@ -76,21 +76,39 @@ func (h *Hub) registerClient(client *Client) {
 		"user_id", client.UserID,
 	)
 
+	// build participants list from connected clients (including the new client)
+	participants := make([]SessionStateParticipant, 0)
+
+	for _, c := range h.sessions[client.SessionID] {
+		participants = append(participants, SessionStateParticipant{
+			UserID:      c.UserID,
+			DisplayName: c.DisplayName,
+			Role:        c.Role,
+		})
+	}
+
+	// send session_state to connecting client
+	sessionStateMsg, err := NewMessage(TypeSessionState, client.SessionID, client.UserID, SessionStatePayload{
+		Code:         client.InitialCode,
+		YourRole:     client.Role,
+		Participants: participants,
+	})
+	if err == nil {
+		if sendErr := client.Send(sessionStateMsg); sendErr != nil {
+			logger.ErrorErr(sendErr, "failed to send session state",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+		}
+	}
+
+	// broadcast user_joined to other clients in the session
 	userJoinedMsg, err := NewMessage(TypeUserJoined, client.SessionID, client.UserID, UserJoinedPayload{
 		UserID:      client.UserID,
 		DisplayName: client.DisplayName,
 		Role:        client.Role,
 	})
 	if err == nil {
-		// send welcome message to the connecting client first
-		if sendErr := client.Send(userJoinedMsg); sendErr != nil {
-			logger.ErrorErr(sendErr, "failed to send welcome message",
-				"client_id", client.ID,
-				"session_id", client.SessionID,
-			)
-		}
-
-		// then broadcast to other clients in the session
 		h.broadcastToSession(client.SessionID, userJoinedMsg, client.ID)
 	}
 }
@@ -111,6 +129,7 @@ func (h *Hub) unregisterClient(client *Client) {
 
 		if client.UserID != "" {
 			h.userConnections[client.UserID]--
+
 			if h.userConnections[client.UserID] <= 0 {
 				delete(h.userConnections, client.UserID)
 			}

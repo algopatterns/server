@@ -11,7 +11,7 @@ import (
 )
 
 // creates a new webSocket client connection
-func NewClient(id, sessionID, userID, displayName, role, tier, ipAddress string, isAuthenticated bool, conn *websocket.Conn, hub *Hub) *Client {
+func NewClient(id, sessionID, userID, displayName, role, tier, ipAddress, initialCode string, isAuthenticated bool, conn *websocket.Conn, hub *Hub) *Client {
 	return &Client{
 		ID:                     id,
 		SessionID:              sessionID,
@@ -21,6 +21,7 @@ func NewClient(id, sessionID, userID, displayName, role, tier, ipAddress string,
 		Tier:                   tier,
 		IsAuthenticated:        isAuthenticated,
 		IPAddress:              ipAddress,
+		InitialCode:            initialCode,
 		conn:                   conn,
 		hub:                    hub,
 		send:                   make(chan []byte, 256),
