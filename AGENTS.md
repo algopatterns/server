@@ -159,7 +159,7 @@ Claude gets both technical docs AND teaching concepts!
 ```
 
 #### 3. **Example Strudels** (Vector Search - Contextual)
-Finished Strudel code examples from public websites, showing working patterns.
+Finished Strudel code examples from users strudels, showing working patterns.
 
 **Storage:** Separate table with code + description embeddings
 **Retrieval:** Search using query + editor context keywords
