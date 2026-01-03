@@ -1,0 +1,22 @@
+{
+  "name": "strudel-validator",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Validates Strudel code using the official transpiler",
+  "main": "validator.js",
+  "scripts": {
+    "start": "node validator.js",
+    "bundle": "esbuild validator.js --bundle --platform=node --format=cjs --outfile=dist/validator.cjs",
+    "compile": "pkg dist/validator.cjs --targets node20-linuxstatic-x64,node20-macos-x64,node20-macos-arm64 --output dist/validator",
+    "build": "npm run bundle && npm run compile"
+  },
+  "dependencies": {
+    "@strudel/core": "^1.2.5",
+    "@strudel/mini": "^1.2.5",
+    "@strudel/transpiler": "^1.2.5"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^5.12.0",
+    "esbuild": "^0.24.0"
+  }
+}

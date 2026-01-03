@@ -38,6 +38,10 @@ Thumbs.db
 
 # Dependencies
 vendor/
+node_modules/
+
+# Validator build artifacts
+scripts/validate-strudel/dist/
 
 # Build artifacts
 dist/

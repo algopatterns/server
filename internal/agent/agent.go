@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/algoraveai/server/internal/llm"
+	"github.com/algoraveai/server/internal/strudel"
 )
 
 func New(ret Retriever, llmClient llm.LLM) *Agent {
@@ -12,6 +13,20 @@ func New(ret Retriever, llmClient llm.LLM) *Agent {
 		retriever: ret,
 		generator: llmClient,
 	}
+}
+
+// creates an agent with code validation enabled.
+func NewWithValidator(ret Retriever, llmClient llm.LLM, validator *strudel.Validator) *Agent {
+	return &Agent{
+		retriever: ret,
+		generator: llmClient,
+		validator: validator,
+	}
+}
+
+// sets the validator for the agent.
+func (a *Agent) SetValidator(v *strudel.Validator) {
+	a.validator = v
 }
 
 func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateResponse, error) {
@@ -63,41 +78,39 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		return nil, fmt.Errorf("failed to generate code: %w", err)
 	}
 
+	totalInputTokens := response.Usage.InputTokens
+	totalOutputTokens := response.Usage.OutputTokens
+	didRetry := false
+	var validationError string
+
+	// validate and retry if validator is available
+	if a.validator != nil && response.Text != "" {
+		result, err := a.validator.Validate(ctx, response.Text)
+		if err == nil && !result.Valid {
+			retryResponse, retryErr := a.retryWithValidationError(
+				ctx, textGenerator, systemPrompt, req.UserQuery,
+				req.ConversationHistory, response.Text, result,
+			)
+			if retryErr == nil {
+				response = retryResponse
+				totalInputTokens += retryResponse.Usage.InputTokens
+				totalOutputTokens += retryResponse.Usage.OutputTokens
+				didRetry = true
+			}
+
+			validationError = result.Error
+		}
+	}
+
 	return &GenerateResponse{
 		Code:              response.Text,
 		DocsRetrieved:     len(docs),
 		ExamplesRetrieved: len(examples),
 		Model:             textGenerator.Model(),
 		IsActionable:      true,
-		InputTokens:       response.Usage.InputTokens,
-		OutputTokens:      response.Usage.OutputTokens,
+		InputTokens:       totalInputTokens,
+		OutputTokens:      totalOutputTokens,
+		DidRetry:          didRetry,
+		ValidationError:   validationError,
 	}, nil
-}
-
-func (a *Agent) callGeneratorWithClient(ctx context.Context, generator llm.TextGenerator, systemPrompt, userQuery string, history []Message) (*llm.TextGenerationResponse, error) {
-	llmMessages := make([]llm.Message, 0, len(history)+1)
-
-	for _, msg := range history {
-		llmMessages = append(llmMessages, llm.Message{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
-	}
-
-	llmMessages = append(llmMessages, llm.Message{
-		Role:    "user",
-		Content: userQuery,
-	})
-
-	response, err := generator.GenerateText(ctx, llm.TextGenerationRequest{
-		SystemPrompt: systemPrompt,
-		Messages:     llmMessages,
-		MaxTokens:    4096,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate text: %w", err)
-	}
-
-	return response, nil
 }

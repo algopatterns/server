@@ -5,6 +5,7 @@ import (
 
 	"github.com/algoraveai/server/internal/llm"
 	"github.com/algoraveai/server/internal/retriever"
+	"github.com/algoraveai/server/internal/strudel"
 )
 
 // interface for document and example retrieval
@@ -17,6 +18,7 @@ type Retriever interface {
 type Agent struct {
 	retriever Retriever
 	generator llm.LLM
+	validator *strudel.Validator
 }
 
 // contains all inputs for code generation
@@ -37,6 +39,8 @@ type GenerateResponse struct {
 	ClarifyingQuestions []string `json:"clarifying_questions,omitempty"`
 	InputTokens         int      `json:"input_tokens"`
 	OutputTokens        int      `json:"output_tokens"`
+	DidRetry            bool     `json:"did_retry,omitempty"`
+	ValidationError     string   `json:"validation_error,omitempty"`
 }
 
 // represents a single conversation turn
