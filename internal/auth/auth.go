@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
+	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/apple"
 	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
@@ -14,7 +16,17 @@ import (
 
 // sets up all OAuth providers using goth
 func InitializeProviders() error {
+	// initialize gothic session store
+	sessionSecret := os.Getenv("SESSION_SECRET")
+
+	if sessionSecret == "" {
+		return fmt.Errorf("SESSION_SECRET must be set")
+	}
+
+	gothic.Store = sessions.NewCookieStore([]byte(sessionSecret))
+
 	baseURL := os.Getenv("BASE_URL")
+
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
 	}
