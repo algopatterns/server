@@ -205,6 +205,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 		client := ws.NewClient(clientID, params.SessionID, userID, displayName, role, tier, ipAddress, isAuthenticated, conn, hub)
 
 		// add participant to session (authenticated or anonymous)
+		// note: anonymous hosts are not added to participants table as they're already tracked via the session itself
 		if isAuthenticated {
 			_, err = sessionRepo.AddAuthenticatedParticipant(ctx, params.SessionID, userID, displayName, role)
 			if err != nil {
@@ -214,7 +215,7 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 					"error", err,
 				)
 			}
-		} else {
+		} else if role != "host" {
 			_, err = sessionRepo.AddAnonymousParticipant(ctx, params.SessionID, displayName, role)
 			if err != nil {
 				logger.Warn("failed to add anonymous participant",
