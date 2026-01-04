@@ -184,6 +184,15 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 				} else {
 					displayName = fmt.Sprintf("Anonymous %s", inviteToken.Role)
 				}
+
+				// increment invite token usage count
+				if err := sessionRepo.IncrementTokenUses(ctx, inviteToken.ID); err != nil {
+					logger.Warn("failed to increment invite token uses",
+						"session_id", params.SessionID,
+						"token_id", inviteToken.ID,
+						"error", err,
+					)
+				}
 			}
 
 			// if still no role, reject connection
