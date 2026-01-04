@@ -183,7 +183,7 @@ type SessionStatePayload struct {
 
 // represents a message in the conversation history
 type SessionStateMessage struct {
-	Role    string `json:"role"`    // user, assistant
+	Role    string `json:"role"` // user, assistant
 	Content string `json:"content"`
 }
 
