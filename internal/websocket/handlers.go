@@ -295,7 +295,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 
 // handles play messages from host/co-author
 func PlayHandler() MessageHandler {
-	return func(hub *Hub, client *Client, msg *Message) error {
+	return func(hub *Hub, client *Client, _ *Message) error {
 		// check if client has write permissions (host or co-author)
 		if !client.CanWrite() {
 			client.SendError("forbidden", "only host and co-authors can control playback", "")
@@ -317,8 +317,8 @@ func PlayHandler() MessageHandler {
 			return err
 		}
 
-		// broadcast to all clients in the session (including sender for confirmation)
-		hub.BroadcastToSession(client.SessionID, broadcastMsg, "")
+		// broadcast to all other clients in the session (exclude sender)
+		hub.BroadcastToSession(client.SessionID, broadcastMsg, client.ID)
 
 		logger.Info("playback started",
 			"client_id", client.ID,
@@ -332,7 +332,7 @@ func PlayHandler() MessageHandler {
 
 // handles stop messages from host/co-author
 func StopHandler() MessageHandler {
-	return func(hub *Hub, client *Client, msg *Message) error {
+	return func(hub *Hub, client *Client, _ *Message) error {
 		// check if client has write permissions (host or co-author)
 		if !client.CanWrite() {
 			client.SendError("forbidden", "only host and co-authors can control playback", "")
@@ -354,8 +354,8 @@ func StopHandler() MessageHandler {
 			return err
 		}
 
-		// broadcast to all clients in the session (including sender for confirmation)
-		hub.BroadcastToSession(client.SessionID, broadcastMsg, "")
+		// broadcast to all other clients in the session (exclude sender)
+		hub.BroadcastToSession(client.SessionID, broadcastMsg, client.ID)
 
 		logger.Info("playback stopped",
 			"client_id", client.ID,
