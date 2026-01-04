@@ -14,8 +14,8 @@ import (
 
 const dbTimeout = 10 * time.Second
 
-// handles code update messages
-func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
+// handles code update messages (broadcast only, no DB write)
+func CodeUpdateHandler() MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {
 		// check rate limit
 		if !client.checkCodeUpdateRateLimit() {
@@ -43,17 +43,8 @@ func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 			return ErrCodeTooLarge
 		}
 
-		// update session code in database
-		ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-		defer cancel()
-		if err := sessionRepo.UpdateSessionCode(ctx, client.SessionID, payload.Code); err != nil {
-			logger.ErrorErr(err, "failed to update session code",
-				"client_id", client.ID,
-				"session_id", client.SessionID,
-			)
-			client.SendError("server_error", "failed to save code update", err.Error())
-			return err
-		}
+		// track latest code for save on disconnect
+		client.SetLastCode(payload.Code)
 
 		// add display name to payload
 		payload.DisplayName = client.DisplayName
@@ -451,6 +442,49 @@ func ChatHandler(sessionRepo sessions.Repository) MessageHandler {
 			"client_id", client.ID,
 			"session_id", client.SessionID,
 			"display_name", client.DisplayName,
+		)
+
+		return nil
+	}
+}
+
+// handles auto-save messages to persist code to database
+func AutoSaveHandler(sessionRepo sessions.Repository) MessageHandler {
+	return func(_ *Hub, client *Client, msg *Message) error {
+		// check if client has write permissions
+		if !client.CanWrite() {
+			return ErrReadOnly
+		}
+
+		// parse payload
+		var payload AutoSavePayload
+		if err := msg.UnmarshalPayload(&payload); err != nil {
+			client.SendError("validation_error", "failed to parse auto save", err.Error())
+			return err
+		}
+
+		// validate code size
+		codeSize := len([]byte(payload.Code))
+		if codeSize > maxCodeSize {
+			client.SendError("bad_request", "code exceeds maximum size. maximum 100 KB allowed.", "")
+			return ErrCodeTooLarge
+		}
+
+		// persist to database
+		ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+		defer cancel()
+
+		if err := sessionRepo.UpdateSessionCode(ctx, client.SessionID, payload.Code); err != nil {
+			logger.ErrorErr(err, "failed to auto-save session code",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+			return err
+		}
+
+		logger.Debug("code auto-saved",
+			"client_id", client.ID,
+			"session_id", client.SessionID,
 		)
 
 		return nil
