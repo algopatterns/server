@@ -50,8 +50,8 @@ type Repository interface {
 
 	// message operations
 	GetMessages(ctx context.Context, sessionID string, limit int) ([]*Message, error)
-	CreateMessage(ctx context.Context, sessionID string, userID *string, role, messageType, content string, isActionable bool, displayName, avatarURL *string) (*Message, error)
-	AddMessage(ctx context.Context, sessionID, userID, role, messageType, content string, isActionable bool, displayName, avatarURL string) (*Message, error)
+	CreateMessage(ctx context.Context, sessionID string, userID *string, role, messageType, content string, isActionable, isCodeResponse bool, displayName, avatarURL *string) (*Message, error)
+	AddMessage(ctx context.Context, sessionID, userID, role, messageType, content string, isActionable, isCodeResponse bool, displayName, avatarURL string) (*Message, error)
 	UpdateLastActivity(ctx context.Context, sessionID string) error
 }
 
@@ -118,16 +118,17 @@ type InviteToken struct {
 
 // represents a chat message in a session
 type Message struct {
-	ID           string    `json:"id"`
-	SessionID    string    `json:"sessionID"`
-	UserID       *string   `json:"userID,omitempty"`
-	Role         string    `json:"role"`        // user, assistant
-	MessageType  string    `json:"messageType"` // MessageTypeUserPrompt, MessageTypeAIResponse, MessageTypeChat
-	Content      string    `json:"content"`
-	IsActionable bool      `json:"isActionable"`
-	DisplayName  *string   `json:"displayName,omitempty"`
-	AvatarURL    *string   `json:"avatarUrl,omitempty"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID             string    `json:"id"`
+	SessionID      string    `json:"sessionID"`
+	UserID         *string   `json:"userID,omitempty"`
+	Role           string    `json:"role"`        // user, assistant
+	MessageType    string    `json:"messageType"` // MessageTypeUserPrompt, MessageTypeAIResponse, MessageTypeChat
+	Content        string    `json:"content"`
+	IsActionable   bool      `json:"isActionable"`
+	IsCodeResponse bool      `json:"isCodeResponse"` // true if response should update editor
+	DisplayName    *string   `json:"displayName,omitempty"`
+	AvatarURL      *string   `json:"avatarUrl,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 // contains data for creating a session

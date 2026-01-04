@@ -253,12 +253,12 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *us
 						msgDisplayName = *msg.DisplayName
 					}
 					conversationHistory = append(conversationHistory, ws.SessionStateMessage{
-						ID:           msg.ID,
-						Role:         msg.Role,
-						Content:      msg.Content,
-						IsActionable: msg.IsActionable,
-						DisplayName:  msgDisplayName,
-						Timestamp:    msg.CreatedAt.UnixMilli(),
+						ID:             msg.ID,
+						Role:           msg.Role,
+						Content:        msg.Content,
+						IsCodeResponse: msg.IsCodeResponse,
+						DisplayName:    msgDisplayName,
+						Timestamp:      msg.CreatedAt.UnixMilli(),
 					})
 				case sessions.MessageTypeChat:
 					// chat messages

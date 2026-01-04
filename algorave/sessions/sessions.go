@@ -570,6 +570,7 @@ func (r *repository) GetMessages(ctx context.Context, sessionID string, limit in
 			&m.MessageType,
 			&m.Content,
 			&m.IsActionable,
+			&m.IsCodeResponse,
 			&m.DisplayName,
 			&m.AvatarURL,
 			&m.CreatedAt,
@@ -592,7 +593,7 @@ func (r *repository) CreateMessage(
 	sessionID string,
 	userID *string,
 	role, messageType, content string,
-	isActionable bool,
+	isActionable, isCodeResponse bool,
 	displayName, avatarURL *string,
 ) (*Message, error) {
 	var message Message
@@ -606,6 +607,7 @@ func (r *repository) CreateMessage(
 		messageType,
 		content,
 		isActionable,
+		isCodeResponse,
 		displayName,
 		avatarURL,
 	).Scan(
@@ -616,6 +618,7 @@ func (r *repository) CreateMessage(
 		&message.MessageType,
 		&message.Content,
 		&message.IsActionable,
+		&message.IsCodeResponse,
 		&message.DisplayName,
 		&message.AvatarURL,
 		&message.CreatedAt,
@@ -632,7 +635,7 @@ func (r *repository) CreateMessage(
 func (r *repository) AddMessage(
 	ctx context.Context,
 	sessionID, userID, role, messageType, content string,
-	isActionable bool,
+	isActionable, isCodeResponse bool,
 	displayName, avatarURL string,
 ) (*Message, error) {
 	// convert empty strings to nil pointers
@@ -661,6 +664,7 @@ func (r *repository) AddMessage(
 		messageType,
 		content,
 		isActionable,
+		isCodeResponse,
 		displayNamePtr,
 		avatarURLPtr,
 	).Scan(
@@ -671,6 +675,7 @@ func (r *repository) AddMessage(
 		&message.MessageType,
 		&message.Content,
 		&message.IsActionable,
+		&message.IsCodeResponse,
 		&message.DisplayName,
 		&message.AvatarURL,
 		&message.CreatedAt,

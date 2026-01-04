@@ -175,7 +175,7 @@ const (
 
 	// message queries
 	queryGetMessages = `
-		SELECT id, session_id, user_id, role, message_type, content, is_actionable, display_name, avatar_url, created_at
+		SELECT id, session_id, user_id, role, message_type, content, is_actionable, is_code_response, display_name, avatar_url, created_at
 		FROM session_messages
 		WHERE session_id = $1
 		ORDER BY created_at DESC
@@ -183,9 +183,9 @@ const (
 	`
 
 	queryCreateMessage = `
-		INSERT INTO session_messages (session_id, user_id, role, message_type, content, is_actionable, display_name, avatar_url)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, session_id, user_id, role, message_type, content, is_actionable, display_name, avatar_url, created_at
+		INSERT INTO session_messages (session_id, user_id, role, message_type, content, is_actionable, is_code_response, display_name, avatar_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, session_id, user_id, role, message_type, content, is_actionable, is_code_response, display_name, avatar_url, created_at
 	`
 
 	queryUpdateLastActivity = `
