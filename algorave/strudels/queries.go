@@ -9,34 +9,6 @@ const (
 		RETURNING id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
 	`
 
-	queryList = `
-		SELECT id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
-		FROM user_strudels
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
-	`
-
-	queryCountByUser = `
-		SELECT COUNT(*)
-		FROM user_strudels
-		WHERE user_id = $1
-	`
-
-	queryListPublic = `
-		SELECT id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
-		FROM user_strudels
-		WHERE is_public = true
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2
-	`
-
-	queryCountPublic = `
-		SELECT COUNT(*)
-		FROM user_strudels
-		WHERE is_public = true
-	`
-
 	queryGetPublic = `
 		SELECT id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
 		FROM user_strudels
