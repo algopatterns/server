@@ -107,14 +107,14 @@ Request AI code generation. Requires `host` or `co-author` role.
 {
   "type": "agent_request",
   "session_id": "uuid",
-  "provider": "anthropic",
-  "provider_api_key": "sk-..."
   "payload": {
+    "provider": "anthropic",
+    "provider_api_key": "sk-..."
     "user_query": "add a kick drum on every beat",
     "editor_state": "sound(\"hh*8\")",
     "conversation_history": [
-      {"role": "user", "content": "make a beat"},
-      {"role": "assistant", "content": "sound(\"hh*8\")"}
+      { "role": "user", "content": "make a beat" },
+      { "role": "assistant", "content": "sound(\"hh*8\")" }
     ],
   }
 }
@@ -199,6 +199,51 @@ Keep connection alive. Server responds with `pong`.
 ---
 
 ## Server Messages (Receive)
+
+### `session_state`
+
+Sent immediately after connection is established. Contains initial session state.
+
+```json
+{
+  "type": "session_state",
+  "session_id": "uuid",
+  "user_id": "uuid",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "payload": {
+    "code": "sound(\"bd sd\").fast(2)",
+    "your_role": "co-author",
+    "participants": [
+      { "user_id": "uuid", "display_name": "Host", "role": "host" },
+      { "user_id": "", "display_name": "Guest", "role": "viewer" }
+    ],
+    "conversation_history": [
+      { "role": "user", "content": "make a beat" },
+      { "role": "assistant", "content": "sound(\"bd sd\")" }
+    ],
+    "chat_history": [
+      {
+        "display_name": "Host",
+        "avatar_url": "https://...",
+        "content": "Welcome to the session!",
+        "timestamp": 1704067200000
+      }
+    ]
+  }
+}
+```
+
+| Field                  | Type   | Description                                            |
+| ---------------------- | ------ | ------------------------------------------------------ |
+| `code`                 | string | Current editor content                                 |
+| `your_role`            | string | Your role in the session                               |
+| `participants`         | array  | Currently connected participants                       |
+| `conversation_history` | array  | LLM conversation history (user prompts + AI responses) |
+| `chat_history`         | array  | Chat message history with timestamps                   |
+
+**Note:** `conversation_history` contains only LLM interactions (`user_prompt` and `ai_response` message types). `chat_history` contains user chat messages with `display_name`, `avatar_url`, `content`, and `timestamp` (Unix milliseconds).
+
+---
 
 ### `code_update` (broadcast)
 
@@ -411,6 +456,7 @@ Sent when the host ends the session. Connection will be closed shortly after.
 ```
 
 Frontend should handle this by:
+
 - Showing a "session ended" notification
 - Switching to offline/replay mode where viewer can control their own playback
 - Optionally offering to fork the final code
