@@ -265,6 +265,20 @@ func (c *Client) GetLastCode() string {
 	return c.LastCode
 }
 
+// sets the current strudel ID (thread-safe)
+func (c *Client) SetCurrentStrudelID(strudelID *string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.CurrentStrudelID = strudelID
+}
+
+// gets the current strudel ID (thread-safe)
+func (c *Client) GetCurrentStrudelID() *string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CurrentStrudelID
+}
+
 // checks if the client can send a code update
 func (c *Client) checkCodeUpdateRateLimit() bool {
 	c.mu.Lock()

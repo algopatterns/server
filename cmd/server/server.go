@@ -67,6 +67,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	hub.RegisterHandler(ws.TypeChatMessage, ws.ChatHandler(sessionRepo))
 	hub.RegisterHandler(ws.TypePlay, ws.PlayHandler())
 	hub.RegisterHandler(ws.TypeStop, ws.StopHandler())
+	hub.RegisterHandler(ws.TypeSwitchStrudel, ws.SwitchStrudelHandler(strudelRepo))
 
 	// save code on client disconnect
 	hub.OnClientDisconnect(func(client *ws.Client) {

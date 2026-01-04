@@ -2,10 +2,12 @@ package websocket
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/algrv/server/algorave/sessions"
+	"github.com/algrv/server/algorave/strudels"
 	"github.com/algrv/server/algorave/users"
 	"github.com/algrv/server/internal/agent"
 	"github.com/algrv/server/internal/llm"
@@ -489,4 +491,131 @@ func AutoSaveHandler(sessionRepo sessions.Repository) MessageHandler {
 
 		return nil
 	}
+}
+
+// handles switch strudel messages to change context without reconnecting
+func SwitchStrudelHandler(strudelRepo *strudels.Repository) MessageHandler {
+	return func(_ *Hub, client *Client, msg *Message) error {
+		// check if client has write permissions
+		if !client.CanWrite() {
+			client.SendError("forbidden", "only host and co-authors can switch strudel context", "")
+			return ErrReadOnly
+		}
+
+		// parse payload
+		var payload SwitchStrudelPayload
+		if err := msg.UnmarshalPayload(&payload); err != nil {
+			client.SendError("validation_error", "failed to parse switch strudel", err.Error())
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+		defer cancel()
+
+		var code string
+		var conversationHistory []SessionStateMessage
+
+		if payload.StrudelID != nil {
+			// switching to a saved strudel - fetch from DB
+			if !client.IsAuthenticated || client.UserID == "" {
+				client.SendError("unauthorized", "must be authenticated to load saved strudels", "")
+				return ErrUnauthorized
+			}
+
+			strudel, err := strudelRepo.Get(ctx, *payload.StrudelID, client.UserID)
+			if err != nil {
+				logger.ErrorErr(err, "failed to fetch strudel",
+					"client_id", client.ID,
+					"strudel_id", *payload.StrudelID,
+				)
+				client.SendError("not_found", "strudel not found or access denied", "")
+				return err
+			}
+
+			code = strudel.Code
+
+			// convert strudel conversation history to session state format
+			conversationHistory = convertAgentMessagesToSessionState(strudel.ConversationHistory)
+		} else {
+			// scratch/anonymous context - use provided data or empty
+			code = payload.Code
+			conversationHistory = payload.ConversationHistory
+
+			// validate code size for provided code
+			if len([]byte(code)) > maxCodeSize {
+				client.SendError("bad_request", "code exceeds maximum size. maximum 100 KB allowed.", "")
+				return ErrCodeTooLarge
+			}
+		}
+
+		// filter conversation history for viewers (they get empty array)
+		if client.Role == "viewer" {
+			conversationHistory = []SessionStateMessage{}
+		}
+
+		// update client's current strudel context
+		client.SetCurrentStrudelID(payload.StrudelID)
+		client.SetLastCode(code)
+
+		// send session_state with the context (only to requesting client)
+		sessionStateMsg, err := NewMessage(TypeSessionState, client.SessionID, client.UserID, SessionStatePayload{
+			Code:                code,
+			YourRole:            client.Role,
+			Participants:        []SessionStateParticipant{}, // not re-sending participants on switch
+			ConversationHistory: conversationHistory,
+			ChatHistory:         []SessionStateChatMessage{}, // chat is session-scoped, not strudel-scoped
+		})
+		if err != nil {
+			logger.ErrorErr(err, "failed to create session state message",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+			client.SendError("server_error", "failed to switch strudel context", "")
+			return err
+		}
+
+		if err := client.Send(sessionStateMsg); err != nil {
+			logger.ErrorErr(err, "failed to send session state",
+				"client_id", client.ID,
+				"session_id", client.SessionID,
+			)
+			return err
+		}
+
+		strudelIDStr := "scratch"
+		if payload.StrudelID != nil {
+			strudelIDStr = *payload.StrudelID
+		}
+
+		logger.Info("strudel context switched",
+			"client_id", client.ID,
+			"session_id", client.SessionID,
+			"strudel_id", strudelIDStr,
+		)
+
+		return nil
+	}
+}
+
+// converts agent.Message slice to SessionStateMessage slice
+func convertAgentMessagesToSessionState(messages []agent.Message) []SessionStateMessage {
+	result := make([]SessionStateMessage, 0, len(messages))
+	for i, m := range messages {
+		displayName := "User"
+		isCodeResponse := false
+		if m.Role == "assistant" {
+			displayName = "Assistant"
+			isCodeResponse = true // assume assistant messages are code responses
+		}
+
+		result = append(result, SessionStateMessage{
+			ID:             fmt.Sprintf("strudel-msg-%d", i),
+			Role:           m.Role,
+			Content:        m.Content,
+			IsCodeResponse: isCodeResponse,
+			DisplayName:    displayName,
+			Timestamp:      0, // not stored in strudel
+		})
+	}
+	return result
 }
