@@ -46,6 +46,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 	if !analysis.IsActionable {
 		return &GenerateResponse{
 			IsActionable:        false,
+			IsCodeResponse:      false,
 			ClarifyingQuestions: analysis.ClarifyingQuestions,
 			DocsRetrieved:       0,
 			ExamplesRetrieved:   0,
@@ -108,6 +109,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		ExamplesRetrieved: len(examples),
 		Model:             textGenerator.Model(),
 		IsActionable:      true,
+		IsCodeResponse:    analysis.IsCodeRequest,
 		InputTokens:       totalInputTokens,
 		OutputTokens:      totalOutputTokens,
 		DidRetry:          didRetry,

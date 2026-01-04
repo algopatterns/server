@@ -68,10 +68,11 @@ type EditorModel struct {
 
 // sent when the agent completes a request
 type AgentResponseMsg struct {
-	userQuery string
-	code      string
-	metadata  string
-	questions []string
+	userQuery      string
+	code           string
+	metadata       string
+	questions      []string
+	isCodeResponse bool
 }
 
 // sent when the agent encounters an error
@@ -137,6 +138,7 @@ type agentResponsePayload struct {
 	ExamplesRetrieved   int      `json:"examples_retrieved"`
 	Model               string   `json:"model"`
 	IsActionable        bool     `json:"is_actionable"`
+	IsCodeResponse      bool     `json:"is_code_response"`
 	ClarifyingQuestions []string `json:"clarifying_questions,omitempty"`
 }
 

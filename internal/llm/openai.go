@@ -17,7 +17,7 @@ const (
 	openaiChatCompletionsURL = "https://api.openai.com/v1/chat/completions"
 	defaultOpenAIModel       = "text-embedding-3-small"
 	defaultOpenAIChatModel   = "gpt-4o"
-	openaiEmbeddingDimension = 1536
+	// openaiEmbeddingDimension = 1536
 )
 
 // shared HTTP client for OpenAI API calls

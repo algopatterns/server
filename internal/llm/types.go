@@ -28,6 +28,7 @@ type QueryTransformer interface {
 type QueryAnalysis struct {
 	TransformedQuery    string   `json:"transformed_query"`
 	IsActionable        bool     `json:"is_actionable"`
+	IsCodeRequest       bool     `json:"is_code_request"`
 	ConcreteRequests    []string `json:"concrete_requests"`
 	ClarifyingQuestions []string `json:"clarifying_questions"`
 }

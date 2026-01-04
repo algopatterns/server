@@ -234,10 +234,11 @@ func (c *WSClient) handleResponse(userQuery string, respMsg wsMessage) (*AgentRe
 
 		code, metadata := formatAgentResponse(resp)
 		return &AgentResponseMsg{
-			userQuery: userQuery,
-			code:      code,
-			metadata:  metadata,
-			questions: resp.ClarifyingQuestions,
+			userQuery:      userQuery,
+			code:           code,
+			metadata:       metadata,
+			questions:      resp.ClarifyingQuestions,
+			isCodeResponse: resp.IsCodeResponse,
 		}, nil
 
 	case typeError:

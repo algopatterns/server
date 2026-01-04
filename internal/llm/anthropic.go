@@ -244,32 +244,45 @@ func (t *AnthropicTransformer) GenerateText(ctx context.Context, req TextGenerat
 func buildTransformationPrompt() string {
 	const prompt = `You are a query analyzer for Strudel music code generation.
 
-Your task: Analyze the user's query and determine if it's actionable (specific enough to generate code).
+Your task: Analyze the user's query and determine:
+1. Is it actionable (specific enough to proceed)?
+2. Is it a code request (wants code generated) or a question (wants information/explanation)?
 
 Return a JSON object with this structure:
 {
   "transformed_query": "3-5 technical keywords for search (comma-separated)",
   "is_actionable": true/false,
+  "is_code_request": true/false,
   "concrete_requests": ["list", "of", "specific", "things", "to", "do"],
   "clarifying_questions": ["list", "of", "questions", "if", "vague"]
 }
 
-ACTIONABLE queries (specific, can generate code):
-- "set the bpm to 120" → actionable, clear instruction
-- "add a kick drum on every beat" → actionable, specific sound + timing
-- "make the hi-hats play 8 times per cycle" → actionable, clear pattern
+CLASSIFICATION RULES:
 
-VAGUE queries (need clarification):
-- "create a house beat" → vague, no specifics about which elements
-- "make it sound better" → vague, no concrete direction
-- "add some drums" → vague, which drums? what pattern?
+1. CODE REQUESTS (is_code_request: true) - User wants code generated:
+   - "set the bpm to 120" → wants code
+   - "add a kick drum on every beat" → wants code
+   - "make the hi-hats faster" → wants code modification
+   - "create a bassline" → wants code
 
-Examples:
+2. QUESTIONS (is_code_request: false) - User wants information/explanation:
+   - "how do I use lpf?" → asking for explanation
+   - "what does the note function do?" → asking for information
+   - "what key is good for house music?" → asking for advice
+   - "can you explain scales?" → asking for explanation
+   - "what's the difference between sound() and note()?" → asking for comparison
+
+3. ACTIONABLE vs VAGUE:
+   - Actionable: Specific enough to proceed (either generate code or answer question)
+   - Vague: Needs clarification before proceeding
+
+EXAMPLES:
 
 Input: "set the bpm to 120"
 {
   "transformed_query": "tempo, bpm, speed, setcpm",
   "is_actionable": true,
+  "is_code_request": true,
   "concrete_requests": ["set tempo to 120 BPM"],
   "clarifying_questions": []
 }
@@ -278,6 +291,7 @@ Input: "create a house beat"
 {
   "transformed_query": "house music, beat, rhythm, drums, pattern",
   "is_actionable": false,
+  "is_code_request": true,
   "concrete_requests": [],
   "clarifying_questions": ["What BPM would you like?", "Which elements should I add? (kick, hi-hat, snare, etc.)", "Any specific pattern or style in mind?"]
 }
@@ -286,7 +300,26 @@ Input: "add a kick drum on every beat"
 {
   "transformed_query": "kick drum, bd, bass drum, four on the floor, rhythm",
   "is_actionable": true,
+  "is_code_request": true,
   "concrete_requests": ["add kick drum pattern with hits on every beat"],
+  "clarifying_questions": []
+}
+
+Input: "how do I use the lpf filter?"
+{
+  "transformed_query": "lpf, low pass filter, cutoff, frequency",
+  "is_actionable": true,
+  "is_code_request": false,
+  "concrete_requests": [],
+  "clarifying_questions": []
+}
+
+Input: "what key works well for techno?"
+{
+  "transformed_query": "key, scale, techno, music theory",
+  "is_actionable": true,
+  "is_code_request": false,
+  "concrete_requests": [],
   "clarifying_questions": []
 }
 

@@ -56,6 +56,7 @@ func (m *mockLLM) AnalyzeQuery(_ context.Context, query string) (*llm.QueryAnaly
 	return &llm.QueryAnalysis{
 		TransformedQuery:    query + " expanded",
 		IsActionable:        true,
+		IsCodeRequest:       true,
 		ConcreteRequests:    []string{query},
 		ClarifyingQuestions: []string{},
 	}, nil

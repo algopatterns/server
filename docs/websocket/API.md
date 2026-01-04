@@ -242,7 +242,9 @@ Sent when a user submits an AI request (sanitized - no private data).
 
 ### `agent_response` (broadcast)
 
-Sent when AI completes code generation.
+Sent when AI completes code generation or answers a question.
+
+**Code generation response (should update editor):**
 
 ```json
 {
@@ -254,12 +256,31 @@ Sent when AI completes code generation.
     "docs_retrieved": 3,
     "examples_retrieved": 2,
     "model": "claude-sonnet-4-20250514",
-    "is_actionable": true
+    "is_actionable": true,
+    "is_code_response": true
   }
 }
 ```
 
-**Or if query was vague:**
+**Question/explanation response (should NOT update editor):**
+
+```json
+{
+  "type": "agent_response",
+  "session_id": "uuid",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "payload": {
+    "code": "The lpf (low-pass filter) removes high frequencies...",
+    "docs_retrieved": 2,
+    "examples_retrieved": 1,
+    "model": "claude-sonnet-4-20250514",
+    "is_actionable": true,
+    "is_code_response": false
+  }
+}
+```
+
+**Vague query (needs clarification):**
 
 ```json
 {
@@ -268,6 +289,7 @@ Sent when AI completes code generation.
   "timestamp": "2024-01-01T00:00:00Z",
   "payload": {
     "is_actionable": false,
+    "is_code_response": false,
     "clarifying_questions": [
       "What BPM would you like?",
       "Which drum sounds should I use?"

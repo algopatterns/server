@@ -238,8 +238,8 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 			}
 		}
 
-		// update session code if generation was successful
-		if response.IsActionable && response.Code != "" {
+		// update session code if generation was successful and is a code response
+		if response.IsCodeResponse && response.Code != "" {
 			if err := sessionRepo.UpdateSessionCode(ctx, client.SessionID, response.Code); err != nil {
 				logger.ErrorErr(err, "failed to update session code",
 					"client_id", client.ID,
@@ -255,6 +255,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 			ExamplesRetrieved:   response.ExamplesRetrieved,
 			Model:               response.Model,
 			IsActionable:        response.IsActionable,
+			IsCodeResponse:      response.IsCodeResponse,
 			ClarifyingQuestions: response.ClarifyingQuestions,
 			RateLimit:           client.GetAgentRateLimitStatus(),
 		}

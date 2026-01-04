@@ -133,14 +133,14 @@ type UserLeftPayload struct {
 // contains a code generation request
 type AgentRequestPayload struct {
 	UserQuery           string `json:"user_query"`
-	EditorState         string `json:"editor_state,omitempty"` // Private, not broadcasted
+	EditorState         string `json:"editor_state,omitempty"` // private, not broadcasted
 	ConversationHistory []struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
-	} `json:"conversation_history,omitempty"` // Private, not broadcasted
-	ProviderAPIKey string `json:"provider_api_key,omitempty"` // Private, not broadcasted
-	Provider       string `json:"provider,omitempty"`         // Private, not broadcasted
-	DisplayName    string `json:"display_name,omitempty"`     // Added by server for broadcasting
+	} `json:"conversation_history,omitempty"` // private, not broadcasted
+	ProviderAPIKey string `json:"provider_api_key,omitempty"` // private, not broadcasted
+	Provider       string `json:"provider,omitempty"`         // private, not broadcasted
+	DisplayName    string `json:"display_name,omitempty"`     // added by server for broadcasting
 }
 
 // contains the agent's code generation response
@@ -150,6 +150,7 @@ type AgentResponsePayload struct {
 	ExamplesRetrieved   int        `json:"examples_retrieved"`
 	Model               string     `json:"model"`
 	IsActionable        bool       `json:"is_actionable"`
+	IsCodeResponse      bool       `json:"is_code_response"` // editor should update if true
 	ClarifyingQuestions []string   `json:"clarifying_questions,omitempty"`
 	RateLimit           *RateLimit `json:"rate_limit,omitempty"`
 }
@@ -313,5 +314,5 @@ type Hub struct {
 	sessionSequences map[string]uint64
 }
 
-// MessageHandler processes a specific message type
+// processes a specific message type
 type MessageHandler func(hub *Hub, client *Client, msg *Message) error

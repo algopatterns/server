@@ -36,6 +36,7 @@ type GenerateResponse struct {
 	ExamplesRetrieved   int      `json:"examples_retrieved"`
 	Model               string   `json:"model"`
 	IsActionable        bool     `json:"is_actionable"`
+	IsCodeResponse      bool     `json:"is_code_response"` // true if response should update editor
 	ClarifyingQuestions []string `json:"clarifying_questions,omitempty"`
 	InputTokens         int      `json:"input_tokens"`
 	OutputTokens        int      `json:"output_tokens"`
