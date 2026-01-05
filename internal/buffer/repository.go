@@ -166,7 +166,45 @@ func (r *BufferedRepository) RevokeInviteToken(ctx context.Context, tokenID stri
 }
 
 func (r *BufferedRepository) GetMessages(ctx context.Context, sessionID string, limit int) ([]*sessions.Message, error) {
-	return r.db.GetMessages(ctx, sessionID, limit)
+	// get messages from Postgres
+	dbMessages, err := r.db.GetMessages(ctx, sessionID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// get unflushed messages from Redis buffer
+	bufferedMsgs, err := r.buffer.GetBufferedMessages(ctx, sessionID)
+	if err != nil {
+		// log but don't fail - Postgres messages are still valid
+		logger.Warn("failed to get buffered messages", "session_id", sessionID, "error", err)
+		return dbMessages, nil
+	}
+
+	if len(bufferedMsgs) == 0 {
+		return dbMessages, nil
+	}
+
+	// convert buffered messages to session messages
+	for _, bm := range bufferedMsgs {
+		msg := &sessions.Message{
+			SessionID:      bm.SessionID,
+			Role:           bm.Role,
+			MessageType:    bm.MessageType,
+			Content:        bm.Content,
+			IsActionable:   bm.IsActionable,
+			IsCodeResponse: bm.IsCodeResponse,
+			CreatedAt:      bm.CreatedAt,
+		}
+		if bm.DisplayName != "" {
+			msg.DisplayName = &bm.DisplayName
+		}
+		if bm.AvatarURL != "" {
+			msg.AvatarURL = &bm.AvatarURL
+		}
+		dbMessages = append(dbMessages, msg)
+	}
+
+	return dbMessages, nil
 }
 
 func (r *BufferedRepository) CreateMessage(

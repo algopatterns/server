@@ -140,6 +140,33 @@ func (b *SessionBuffer) FlushCode(ctx context.Context, sessionID string) (string
 	return code, nil
 }
 
+// retrieves messages for a session WITHOUT clearing them
+// use this for reads that need to see unflushed messages
+func (b *SessionBuffer) GetBufferedMessages(ctx context.Context, sessionID string) ([]BufferedMessage, error) {
+	msgKey := fmt.Sprintf(keySessionMessages, sessionID)
+
+	msgJSONs, err := b.client.LRange(ctx, msgKey, 0, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get buffered messages: %w", err)
+	}
+
+	if len(msgJSONs) == 0 {
+		return nil, nil
+	}
+
+	messages := make([]BufferedMessage, 0, len(msgJSONs))
+	for _, msgJSON := range msgJSONs {
+		var msg BufferedMessage
+		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
+			logger.ErrorErr(err, "failed to unmarshal buffered message", "session_id", sessionID)
+			continue
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
+
 // retrieves and clears all messages for a session
 // returns the messages and removes the session from dirty set
 func (b *SessionBuffer) FlushMessages(ctx context.Context, sessionID string) ([]BufferedMessage, error) {
