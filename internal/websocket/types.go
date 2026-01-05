@@ -136,6 +136,7 @@ type UserLeftPayload struct {
 // contains a code generation request
 type AgentRequestPayload struct {
 	UserQuery           string `json:"user_query"`
+	RequestID           string `json:"request_id"`             // correlation ID for request/response matching
 	EditorState         string `json:"editor_state,omitempty"` // private, not broadcasted
 	ConversationHistory []struct {
 		Role        string `json:"role"`
@@ -157,6 +158,7 @@ type AgentResponsePayload struct {
 	IsCodeResponse      bool       `json:"is_code_response"` // editor should update if true
 	ClarifyingQuestions []string   `json:"clarifying_questions,omitempty"`
 	RateLimit           *RateLimit `json:"rate_limit,omitempty"`
+	RequestID           *string    `json:"request_id,omitempty"` // echoed from request for correlation
 }
 
 // contains rate limit status for the client
@@ -184,6 +186,7 @@ type SessionStatePayload struct {
 	Participants        []SessionStateParticipant `json:"participants"`
 	ConversationHistory []SessionStateMessage     `json:"conversation_history"`
 	ChatHistory         []SessionStateChatMessage `json:"chat_history"`
+	RequestID           *string                   `json:"request_id,omitempty"` // echoed from switch_strudel, null for initial/reconnect
 }
 
 // represents a message in the conversation history
@@ -229,6 +232,7 @@ type SessionEndedPayload struct {
 // contains strudel context switch information
 type SwitchStrudelPayload struct {
 	StrudelID           *string               `json:"strudel_id"`                     // null for scratch/anonymous
+	RequestID           string                `json:"request_id"`                     // correlation ID for request/response matching
 	Code                string                `json:"code,omitempty"`                 // only for restore from localStorage
 	ConversationHistory []SessionStateMessage `json:"conversation_history,omitempty"` // only for restore from localStorage
 }

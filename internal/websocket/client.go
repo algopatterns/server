@@ -203,6 +203,11 @@ func (c *Client) sendBufferOverflowError() {
 
 // sends an error message to the client
 func (c *Client) SendError(code, message, details string) {
+	c.SendErrorWithRequestID(code, message, details, nil)
+}
+
+// sends an error message to the client with request_id for correlation
+func (c *Client) SendErrorWithRequestID(code, message, details string, requestID *string) {
 	// sanitize error details in production
 	sanitizedDetails := details
 
@@ -211,9 +216,10 @@ func (c *Client) SendError(code, message, details string) {
 	}
 
 	errorMsg, err := NewMessage(TypeError, c.SessionID, c.UserID, errors.ErrorResponse{
-		Error:   code,
-		Message: message,
-		Details: sanitizedDetails,
+		Error:     code,
+		Message:   message,
+		Details:   sanitizedDetails,
+		RequestID: requestID,
 	})
 	if err != nil {
 		logger.ErrorErr(err, "failed to create error message",
