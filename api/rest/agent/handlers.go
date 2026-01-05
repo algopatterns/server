@@ -2,10 +2,12 @@ package agent
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/algrv/server/algorave/strudels"
 	agentcore "github.com/algrv/server/internal/agent"
 	"github.com/algrv/server/internal/errors"
 	"github.com/algrv/server/internal/llm"
@@ -16,6 +18,7 @@ const (
 	defaultOpenAIModel    = "gpt-4o"
 	defaultMaxTokens      = 4096
 	defaultTemperature    = 0.7
+	maxHistoryMessages    = 50
 )
 
 // GenerateHandler godoc
@@ -29,7 +32,7 @@ const (
 // @Failure 400 {object} errors.ErrorResponse
 // @Failure 500 {object} errors.ErrorResponse
 // @Router /api/v1/agent/generate [post]
-func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM) gin.HandlerFunc {
+func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req GenerateRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -37,13 +40,39 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM) gin.HandlerFunc {
 			return
 		}
 
-		// convert conversation history to agent format
-		conversationHistory := make([]agentcore.Message, 0, len(req.ConversationHistory))
-		for _, msg := range req.ConversationHistory {
-			conversationHistory = append(conversationHistory, agentcore.Message{
-				Role:    msg.Role,
-				Content: msg.Content,
-			})
+		var conversationHistory []agentcore.Message
+
+		// for saved strudels: load history from DB if not provided
+		// for drafts: use history from request
+		if req.StrudelID != "" && len(req.ConversationHistory) == 0 {
+			// load from database
+			messages, err := strudelRepo.GetStrudelMessages(c.Request.Context(), req.StrudelID, maxHistoryMessages)
+			if err != nil {
+				// log error but continue with empty history (non-fatal)
+				conversationHistory = []agentcore.Message{}
+			} else {
+				conversationHistory = make([]agentcore.Message, 0, len(messages))
+				for _, msg := range messages {
+					// only include messages with content
+					if msg.Content != "" {
+						conversationHistory = append(conversationHistory, agentcore.Message{
+							Role:    msg.Role,
+							Content: msg.Content,
+						})
+					}
+				}
+			}
+		} else {
+			// use history from request (drafts)
+			conversationHistory = make([]agentcore.Message, 0, len(req.ConversationHistory))
+			for _, msg := range req.ConversationHistory {
+				if msg.Content != "" {
+					conversationHistory = append(conversationHistory, agentcore.Message{
+						Role:    msg.Role,
+						Content: msg.Content,
+					})
+				}
+			}
 		}
 
 		// build generate request
@@ -68,6 +97,35 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM) gin.HandlerFunc {
 		if err != nil {
 			errors.InternalError(c, "failed to generate code", err)
 			return
+		}
+
+		// for saved strudels: persist messages to DB (non-fatal errors)
+		if req.StrudelID != "" {
+			ctx := c.Request.Context()
+
+			// save user message
+			if _, err := strudelRepo.AddStrudelMessage(ctx, &strudels.AddStrudelMessageRequest{
+				StrudelID:      req.StrudelID,
+				Role:           "user",
+				Content:        req.UserQuery,
+				IsActionable:   false,
+				IsCodeResponse: false,
+			}); err != nil {
+				log.Printf("failed to persist user message for strudel %s: %v", req.StrudelID, err)
+			}
+
+			// save assistant response (only if there's code content)
+			if resp.Code != "" && resp.IsCodeResponse {
+				if _, err := strudelRepo.AddStrudelMessage(ctx, &strudels.AddStrudelMessageRequest{
+					StrudelID:      req.StrudelID,
+					Role:           "assistant",
+					Content:        resp.Code,
+					IsActionable:   resp.IsActionable,
+					IsCodeResponse: resp.IsCodeResponse,
+				}); err != nil {
+					log.Printf("failed to persist assistant message for strudel %s: %v", req.StrudelID, err)
+				}
+			}
 		}
 
 		c.JSON(http.StatusOK, GenerateResponse{
