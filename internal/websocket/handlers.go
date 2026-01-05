@@ -112,12 +112,12 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 					"client_id", client.ID,
 					"user_id", client.UserID,
 				)
-				client.SendError("server_error", "failed to check rate limit", "")
+				client.SendErrorWithRequestID("server_error", "failed to check rate limit", "", &payload.RequestID)
 				return err
 			}
 
 			if !result.Allowed {
-				client.SendError("too_many_requests", "daily generation limit exceeded", "")
+				client.SendErrorWithRequestID("too_many_requests", "daily generation limit exceeded", "", &payload.RequestID)
 				return ErrRateLimitExceeded
 			}
 		} else {
@@ -130,7 +130,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 				)
 				// continue anyway for anonymous users if rate limit check fails
 			} else if !result.Allowed {
-				client.SendError("too_many_requests", "daily generation limit exceeded for anonymous users", "")
+				client.SendErrorWithRequestID("too_many_requests", "daily generation limit exceeded for anonymous users", "", &payload.RequestID)
 				return ErrRateLimitExceeded
 			}
 		}
@@ -165,14 +165,14 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 		var customGenerator llm.TextGenerator
 		if isBYOK {
 			if payload.Provider == "" {
-				client.SendError("bad_request", "provider is required when using provider_api_key", "")
+				client.SendErrorWithRequestID("bad_request", "provider is required when using provider_api_key", "", &payload.RequestID)
 				return ErrInvalidMessage
 			}
 
 			var err error
 			customGenerator, err = createBYOKGenerator(payload.Provider, payload.ProviderAPIKey)
 			if err != nil {
-				client.SendError("bad_request", err.Error(), "")
+				client.SendErrorWithRequestID("bad_request", err.Error(), "", &payload.RequestID)
 				return err
 			}
 		}
@@ -193,7 +193,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 				"client_id", client.ID,
 				"session_id", client.SessionID,
 			)
-			client.SendError("server_error", "failed to generate code", err.Error())
+			client.SendErrorWithRequestID("server_error", "failed to generate code", err.Error(), &payload.RequestID)
 			return err
 		}
 
@@ -262,6 +262,7 @@ func GenerateHandler(agentClient *agent.Agent, sessionRepo sessions.Repository, 
 			IsCodeResponse:      response.IsCodeResponse,
 			ClarifyingQuestions: response.ClarifyingQuestions,
 			RateLimit:           client.GetAgentRateLimitStatus(),
+			RequestID:           &payload.RequestID, // echo for correlation
 		}
 
 		// create response message
@@ -465,7 +466,7 @@ func SwitchStrudelHandler(flusher *buffer.Flusher, strudelRepo *strudels.Reposit
 		if payload.StrudelID != nil {
 			// switching to a saved strudel - fetch from DB
 			if !client.IsAuthenticated || client.UserID == "" {
-				client.SendError("unauthorized", "must be authenticated to load saved strudels", "")
+				client.SendErrorWithRequestID("unauthorized", "must be authenticated to load saved strudels", "", &payload.RequestID)
 				return ErrUnauthorized
 			}
 
@@ -475,7 +476,7 @@ func SwitchStrudelHandler(flusher *buffer.Flusher, strudelRepo *strudels.Reposit
 					"client_id", client.ID,
 					"strudel_id", *payload.StrudelID,
 				)
-				client.SendError("not_found", "strudel not found or access denied", "")
+				client.SendErrorWithRequestID("not_found", "strudel not found or access denied", "", &payload.RequestID)
 				return err
 			}
 
@@ -490,7 +491,7 @@ func SwitchStrudelHandler(flusher *buffer.Flusher, strudelRepo *strudels.Reposit
 
 			// validate code size for provided code
 			if len([]byte(code)) > maxCodeSize {
-				client.SendError("bad_request", "code exceeds maximum size. maximum 100 KB allowed.", "")
+				client.SendErrorWithRequestID("bad_request", "code exceeds maximum size. maximum 100 KB allowed.", "", &payload.RequestID)
 				return ErrCodeTooLarge
 			}
 		}
@@ -510,13 +511,14 @@ func SwitchStrudelHandler(flusher *buffer.Flusher, strudelRepo *strudels.Reposit
 			Participants:        []SessionStateParticipant{}, // not re-sending participants on switch
 			ConversationHistory: conversationHistory,
 			ChatHistory:         []SessionStateChatMessage{}, // chat is session-scoped, not strudel-scoped
+			RequestID:           &payload.RequestID,          // echo for correlation
 		})
 		if err != nil {
 			logger.ErrorErr(err, "failed to create session state message",
 				"client_id", client.ID,
 				"session_id", client.SessionID,
 			)
-			client.SendError("server_error", "failed to switch strudel context", "")
+			client.SendErrorWithRequestID("server_error", "failed to switch strudel context", "", &payload.RequestID)
 			return err
 		}
 
