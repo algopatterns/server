@@ -2,6 +2,7 @@ package strudels
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -322,12 +323,14 @@ func (r *Repository) Delete(ctx context.Context, strudelID, userID string) error
 // returns strudels that are trainable but don't have embeddings yet
 func (r *Repository) ListTrainableWithoutEmbedding(ctx context.Context, limit int) ([]Strudel, error) {
 	rows, err := r.db.Query(ctx, queryListTrainableWithoutEmbedding, limit)
+
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
+	defer rows.Close()
 	var strudels []Strudel
+
 	for rows.Next() {
 		var s Strudel
 		err := rows.Scan(
@@ -421,14 +424,17 @@ func (r *Repository) ListPublicTags(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
+	defer rows.Close()
 	var tags []string
+
 	for rows.Next() {
 		var tag string
+
 		if err := rows.Scan(&tag); err != nil {
 			return nil, err
 		}
+
 		tags = append(tags, tag)
 	}
 
@@ -445,14 +451,16 @@ func (r *Repository) ListUserTags(ctx context.Context, userID string) ([]string,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
+	defer rows.Close()
 	var tags []string
+
 	for rows.Next() {
 		var tag string
 		if err := rows.Scan(&tag); err != nil {
 			return nil, err
 		}
+
 		tags = append(tags, tag)
 	}
 
@@ -471,7 +479,18 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		displayName = &req.DisplayName
 	}
 
-	err := r.db.QueryRow(
+	// marshal clarifying questions to JSON for JSONB storage
+	var clarifyingQuestionsJSON []byte
+	var err error
+	if len(req.ClarifyingQuestions) > 0 {
+		clarifyingQuestionsJSON, err = json.Marshal(req.ClarifyingQuestions)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var returnedClarifyingQuestionsJSON []byte
+	err = r.db.QueryRow(
 		ctx,
 		queryAddStrudelMessage,
 		req.StrudelID,
@@ -480,7 +499,7 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		req.Content,
 		req.IsActionable,
 		req.IsCodeResponse,
-		req.ClarifyingQuestions,
+		clarifyingQuestionsJSON,
 		displayName,
 	).Scan(
 		&msg.ID,
@@ -490,13 +509,20 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		&msg.Content,
 		&msg.IsActionable,
 		&msg.IsCodeResponse,
-		&msg.ClarifyingQuestions,
+		&returnedClarifyingQuestionsJSON,
 		&msg.DisplayName,
 		&msg.CreatedAt,
 	)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// unmarshal clarifying questions from JSONB
+	if len(returnedClarifyingQuestionsJSON) > 0 {
+		if err := json.Unmarshal(returnedClarifyingQuestionsJSON, &msg.ClarifyingQuestions); err != nil {
+			return nil, err
+		}
 	}
 
 	return &msg, nil
@@ -514,6 +540,7 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 
 	for rows.Next() {
 		var msg StrudelMessage
+		var clarifyingQuestionsJSON []byte
 		err := rows.Scan(
 			&msg.ID,
 			&msg.StrudelID,
@@ -522,12 +549,19 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 			&msg.Content,
 			&msg.IsActionable,
 			&msg.IsCodeResponse,
-			&msg.ClarifyingQuestions,
+			&clarifyingQuestionsJSON,
 			&msg.DisplayName,
 			&msg.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// unmarshal clarifying questions from JSONB
+		if len(clarifyingQuestionsJSON) > 0 {
+			if err := json.Unmarshal(clarifyingQuestionsJSON, &msg.ClarifyingQuestions); err != nil {
+				return nil, err
+			}
 		}
 
 		messages = append(messages, &msg)
