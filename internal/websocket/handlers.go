@@ -433,7 +433,7 @@ func ChatHandler(sessionRepo sessions.Repository) MessageHandler {
 }
 
 // handles switch strudel messages to change context without reconnecting
-func SwitchStrudelHandler(flusher *buffer.Flusher, strudelRepo *strudels.Repository) MessageHandler {
+func SwitchStrudelHandler(flusher *buffer.Flusher, strudelRepo *strudels.Repository, sessionRepo sessions.Repository) MessageHandler {
 	return func(_ *Hub, client *Client, msg *Message) error {
 		// check if client has write permissions
 		if !client.CanWrite() {
@@ -482,8 +482,36 @@ func SwitchStrudelHandler(flusher *buffer.Flusher, strudelRepo *strudels.Reposit
 
 			code = strudel.Code
 
-			// convert strudel conversation history to session state format
-			conversationHistory = convertAgentMessagesToSessionState(strudel.ConversationHistory)
+			// prefer session's conversation history (includes Redis buffer) over stale strudel history
+			// this ensures recent AI conversations are preserved on page refresh
+			messages, err := sessionRepo.GetMessages(ctx, client.SessionID, 50)
+			if err != nil {
+				logger.Warn("failed to fetch session messages for switch, falling back to strudel history",
+					"session_id", client.SessionID,
+					"strudel_id", *payload.StrudelID,
+					"error", err,
+				)
+				// fallback to strudel's saved conversation history
+				conversationHistory = convertAgentMessagesToSessionState(strudel.ConversationHistory)
+			} else {
+				// convert session messages to session state format
+				for _, msg := range messages {
+					if msg.MessageType == sessions.MessageTypeUserPrompt || msg.MessageType == sessions.MessageTypeAIResponse {
+						displayName := ""
+						if msg.DisplayName != nil {
+							displayName = *msg.DisplayName
+						}
+						conversationHistory = append(conversationHistory, SessionStateMessage{
+							ID:             msg.ID,
+							Role:           msg.Role,
+							Content:        msg.Content,
+							IsCodeResponse: msg.IsCodeResponse,
+							DisplayName:    displayName,
+							Timestamp:      msg.CreatedAt.UnixMilli(),
+						})
+					}
+				}
+			}
 		} else {
 			// scratch/anonymous context - use provided data or empty
 			code = payload.Code
