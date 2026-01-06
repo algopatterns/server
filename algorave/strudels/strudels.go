@@ -45,6 +45,17 @@ func (r *Repository) Create(
 		}
 	}
 
+	// if forked, inherit allow_training restriction from parent
+	allowTraining := req.AllowTraining
+	if req.ForkedFrom != nil {
+		var parentAllowTraining bool
+		err := r.db.QueryRow(ctx, queryGetParentAllowTraining, *req.ForkedFrom).Scan(&parentAllowTraining)
+		if err == nil && !parentAllowTraining {
+			// parent doesn't allow training, so fork can't either
+			allowTraining = false
+		}
+	}
+
 	err := r.db.QueryRow(
 		ctx,
 		queryCreate,
@@ -52,7 +63,7 @@ func (r *Repository) Create(
 		req.Title,
 		req.Code,
 		req.IsPublic,
-		req.AllowTraining,
+		allowTraining,
 		aiAssistCount,
 		req.ForkedFrom,
 		req.Description,
@@ -625,4 +636,24 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 	}
 
 	return messages, nil
+}
+
+// GetStrudelAllowTraining returns whether a strudel allows AI training
+func (r *Repository) GetStrudelAllowTraining(ctx context.Context, strudelID string) (bool, error) {
+	var allowTraining bool
+	err := r.db.QueryRow(ctx, queryGetParentAllowTraining, strudelID).Scan(&allowTraining)
+	if err != nil {
+		return false, err
+	}
+	return allowTraining, nil
+}
+
+// GetStrudelForkedFrom returns the parent strudel ID if this is a fork
+func (r *Repository) GetStrudelForkedFrom(ctx context.Context, strudelID string) (*string, error) {
+	var forkedFrom *string
+	err := r.db.QueryRow(ctx, queryGetStrudelForkedFrom, strudelID).Scan(&forkedFrom)
+	if err != nil {
+		return nil, err
+	}
+	return forkedFrom, nil
 }

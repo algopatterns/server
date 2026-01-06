@@ -88,6 +88,14 @@ const (
 		ORDER BY tag
 	`
 
+	queryGetParentAllowTraining = `
+		SELECT allow_training FROM user_strudels WHERE id = $1
+	`
+
+	queryGetStrudelForkedFrom = `
+		SELECT forked_from FROM user_strudels WHERE id = $1
+	`
+
 	// strudel_messages queries (AI conversation history for saved strudels)
 	queryAddStrudelMessage = `
 		INSERT INTO strudel_messages (strudel_id, user_id, role, content, is_actionable, is_code_response, clarifying_questions, display_name)

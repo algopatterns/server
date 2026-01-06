@@ -41,6 +41,28 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strud
 			return
 		}
 
+		// block AI for forks from strudels that don't allow training
+		// check client-provided forked_from_id (for drafts)
+		if req.ForkedFromID != "" {
+			parentAllowTraining, err := strudelRepo.GetStrudelAllowTraining(c.Request.Context(), req.ForkedFromID)
+			if err == nil && !parentAllowTraining {
+				errors.Forbidden(c, "AI assistant disabled - original author restricted AI use for this strudel")
+				return
+			}
+		}
+
+		// also check server-side for saved strudels (can't be bypassed)
+		if req.StrudelID != "" {
+			forkedFromID, err := strudelRepo.GetStrudelForkedFrom(c.Request.Context(), req.StrudelID)
+			if err == nil && forkedFromID != nil {
+				parentAllowTraining, err := strudelRepo.GetStrudelAllowTraining(c.Request.Context(), *forkedFromID)
+				if err == nil && !parentAllowTraining {
+					errors.Forbidden(c, "AI assistant disabled - original author restricted AI use for this strudel")
+					return
+				}
+			}
+		}
+
 		var conversationHistory []agentcore.Message
 
 		// for saved strudels: load history from DB if not provided

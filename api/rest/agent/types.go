@@ -8,6 +8,7 @@ type GenerateRequest struct {
 	Provider            string    `json:"provider,omitempty"`         // "anthropic" or "openai"
 	ProviderAPIKey      string    `json:"provider_api_key,omitempty"` // BYOK key
 	StrudelID           string    `json:"strudel_id,omitempty"`       // optional: for persisting conversation
+	ForkedFromID        string    `json:"forked_from_id,omitempty"`   // optional: for blocking AI on restricted forks
 }
 
 // conversation message
