@@ -19,6 +19,7 @@ const (
 			description,
 			code,
 			tags,
+			user_id::text,
 			'' as url,
 			similarity
 		FROM search_user_strudels($1, $2)
@@ -40,7 +41,8 @@ const (
 
 	bm25SearchExamplesQuery = `
 		SELECT
-			us.id,
+			us.id::text,
+			us.user_id::text,
 			us.title,
 			us.description,
 			us.code,
@@ -50,6 +52,7 @@ const (
 		FROM user_strudels us
 		INNER JOIN users u ON us.user_id = u.id
 		WHERE us.searchable_tsvector @@ websearch_to_tsquery('english', $1)
+		  AND us.allow_training = true
 		  AND us.use_in_training = true
 		  AND us.is_public = true
 		  AND u.training_consent = true

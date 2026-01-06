@@ -26,6 +26,7 @@ type SearchResult struct {
 // represents an example Strudel from vector search
 type ExampleResult struct {
 	ID          string
+	UserID      string
 	Title       string
 	Description string
 	Code        string

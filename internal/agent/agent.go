@@ -107,6 +107,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		Code:              response.Text,
 		DocsRetrieved:     len(docs),
 		ExamplesRetrieved: len(examples),
+		Examples:          examples,
 		Model:             textGenerator.Model(),
 		IsActionable:      true,
 		IsCodeResponse:    analysis.IsCodeRequest,

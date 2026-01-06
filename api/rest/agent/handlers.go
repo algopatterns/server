@@ -9,6 +9,7 @@ import (
 
 	"github.com/algrv/server/algorave/strudels"
 	agentcore "github.com/algrv/server/internal/agent"
+	"github.com/algrv/server/internal/attribution"
 	"github.com/algrv/server/internal/errors"
 	"github.com/algrv/server/internal/llm"
 )
@@ -32,7 +33,7 @@ const (
 // @Failure 400 {object} errors.ErrorResponse
 // @Failure 500 {object} errors.ErrorResponse
 // @Router /api/v1/agent/generate [post]
-func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strudels.Repository) gin.HandlerFunc {
+func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strudels.Repository, attrService *attribution.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req GenerateRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -97,6 +98,17 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strud
 		if err != nil {
 			errors.InternalError(c, "failed to generate code", err)
 			return
+		}
+
+		// record attributions if examples were used (runs async)
+		if attrService != nil && len(resp.Examples) > 0 {
+			userID, _ := c.Get("user_id")
+			userIDStr, _ := userID.(string)
+			var targetStrudelID *string
+			if req.StrudelID != "" {
+				targetStrudelID = &req.StrudelID
+			}
+			attrService.RecordAttributions(c.Request.Context(), resp.Examples, userIDStr, targetStrudelID)
 		}
 
 		// for saved strudels: persist messages to DB (non-fatal errors)
