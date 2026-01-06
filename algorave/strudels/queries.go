@@ -97,6 +97,35 @@ const (
 		SELECT forked_from FROM user_strudels WHERE id = $1
 	`
 
+	// paste detection: check if code matches any strudel owned by user
+	queryUserOwnsStrudelWithCode = `
+		SELECT EXISTS(
+			SELECT 1 FROM user_strudels
+			WHERE user_id = $1 AND code = $2
+		)
+	`
+
+	// paste detection: check if code matches any public strudel that allows AI (for fork validation)
+	// excludes strudels with no-ai CC signal since those should still trigger paste lock
+	queryPublicStrudelExistsWithCodeAllowsAI = `
+		SELECT EXISTS(
+			SELECT 1 FROM user_strudels
+			WHERE is_public = true
+			  AND code = $1
+			  AND (cc_signal IS NULL OR cc_signal != 'no-ai')
+		)
+	`
+
+	// paste detection: check if code matches any public strudel with no-ai CC signal
+	queryPublicStrudelExistsWithCodeNoAI = `
+		SELECT EXISTS(
+			SELECT 1 FROM user_strudels
+			WHERE is_public = true
+			  AND code = $1
+			  AND cc_signal = 'no-ai'
+		)
+	`
+
 	// strudel_messages queries (AI conversation history for saved strudels)
 	queryAddStrudelMessage = `
 		INSERT INTO strudel_messages (strudel_id, user_id, role, content, is_actionable, is_code_response, clarifying_questions, display_name)

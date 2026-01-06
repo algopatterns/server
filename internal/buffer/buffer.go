@@ -221,3 +221,80 @@ func (b *SessionBuffer) ClearSession(ctx context.Context, sessionID string) erro
 func (b *SessionBuffer) Client() *redis.Client {
 	return b.client
 }
+
+// SetPasteLock sets a paste lock for a session with baseline code
+func (b *SessionBuffer) SetPasteLock(ctx context.Context, sessionID, baselineCode string) error {
+	pipe := b.client.Pipeline()
+
+	lockKey := fmt.Sprintf(keyPasteLock, sessionID)
+	baselineKey := fmt.Sprintf(keyPasteBaseline, sessionID)
+
+	pipe.Set(ctx, lockKey, "1", PasteLockTTL)
+	pipe.Set(ctx, baselineKey, baselineCode, PasteLockTTL)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to set paste lock: %w", err)
+	}
+
+	return nil
+}
+
+// IsPasteLocked checks if a session has an active paste lock
+func (b *SessionBuffer) IsPasteLocked(ctx context.Context, sessionID string) (bool, error) {
+	lockKey := fmt.Sprintf(keyPasteLock, sessionID)
+	exists, err := b.client.Exists(ctx, lockKey).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check paste lock: %w", err)
+	}
+	return exists > 0, nil
+}
+
+// GetPasteBaseline retrieves the baseline code for edit distance calculation
+func (b *SessionBuffer) GetPasteBaseline(ctx context.Context, sessionID string) (string, error) {
+	baselineKey := fmt.Sprintf(keyPasteBaseline, sessionID)
+	baseline, err := b.client.Get(ctx, baselineKey).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get paste baseline: %w", err)
+	}
+	return baseline, nil
+}
+
+// RemovePasteLock removes the paste lock for a session
+func (b *SessionBuffer) RemovePasteLock(ctx context.Context, sessionID string) error {
+	pipe := b.client.Pipeline()
+
+	lockKey := fmt.Sprintf(keyPasteLock, sessionID)
+	baselineKey := fmt.Sprintf(keyPasteBaseline, sessionID)
+
+	pipe.Del(ctx, lockKey)
+	pipe.Del(ctx, baselineKey)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to remove paste lock: %w", err)
+	}
+
+	return nil
+}
+
+// RefreshPasteLockTTL extends the TTL of the paste lock
+func (b *SessionBuffer) RefreshPasteLockTTL(ctx context.Context, sessionID string) error {
+	pipe := b.client.Pipeline()
+
+	lockKey := fmt.Sprintf(keyPasteLock, sessionID)
+	baselineKey := fmt.Sprintf(keyPasteBaseline, sessionID)
+
+	pipe.Expire(ctx, lockKey, PasteLockTTL)
+	pipe.Expire(ctx, baselineKey, PasteLockTTL)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to refresh paste lock TTL: %w", err)
+	}
+
+	return nil
+}

@@ -9,6 +9,7 @@ type GenerateRequest struct {
 	ProviderAPIKey      string    `json:"provider_api_key,omitempty"` // BYOK key
 	StrudelID           string    `json:"strudel_id,omitempty"`       // optional: for persisting conversation
 	ForkedFromID        string    `json:"forked_from_id,omitempty"`   // optional: for blocking AI on restricted forks
+	SessionID           string    `json:"session_id,omitempty"`       // optional: for paste lock validation
 }
 
 // conversation message

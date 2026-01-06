@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/algrv/server/algorave/sessions"
+	"github.com/algrv/server/algorave/strudels"
+	"github.com/algrv/server/internal/buffer"
 	"github.com/algrv/server/internal/logger"
 )
 
 // handles code update messages
-func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
+func CodeUpdateHandler(sessionRepo sessions.Repository, sessionBuffer *buffer.SessionBuffer, strudelRepo *strudels.Repository) MessageHandler {
 	return func(hub *Hub, client *Client, msg *Message) error {
 		// check rate limit
 		if !client.checkCodeUpdateRateLimit() {
@@ -38,10 +40,85 @@ func CodeUpdateHandler(sessionRepo sessions.Repository) MessageHandler {
 			return ErrCodeTooLarge
 		}
 
-		// save code (goes to redis buffer via BufferedRepository)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
+		// get previous code for paste detection
+		session, err := sessionRepo.GetSession(ctx, client.SessionID)
+		previousCode := ""
+		if err == nil && session != nil {
+			previousCode = session.Code
+		}
+
+		// paste detection: server-side behavioral detection (independent of frontend source field)
+		// only process paste detection if there's a large delta
+		if buffer.IsLargeDelta(previousCode, payload.Code) {
+			// large delta detected - validate if it's from a legitimate source
+			shouldLock := true
+
+			// check 1: does code match session's existing code? (reconnection/sync)
+			if payload.Code == previousCode {
+				shouldLock = false
+			}
+
+			// check 2: does code match any of user's own strudels? (loading own work)
+			if shouldLock && client.UserID != "" && strudelRepo != nil {
+				owns, err := strudelRepo.UserOwnsStrudelWithCode(ctx, client.UserID, payload.Code)
+				if err == nil && owns {
+					shouldLock = false
+					logger.Info("large delta from own strudel, skipping paste lock",
+						"session_id", client.SessionID,
+						"user_id", client.UserID,
+					)
+				}
+			}
+
+			// check 3: does code match any public strudel that allows AI? (legitimate fork)
+			// note: public strudels with no-ai CC signal will NOT bypass the lock
+			if shouldLock && strudelRepo != nil {
+				exists, err := strudelRepo.PublicStrudelExistsWithCodeAllowsAI(ctx, payload.Code)
+				if err == nil && exists {
+					shouldLock = false
+					logger.Info("large delta from public strudel (fork, allows AI), skipping paste lock",
+						"session_id", client.SessionID,
+					)
+				}
+			}
+
+			// if still shouldLock, this is likely an external paste
+			if shouldLock {
+				if err := sessionBuffer.SetPasteLock(ctx, client.SessionID, payload.Code); err != nil {
+					logger.ErrorErr(err, "failed to set paste lock", "session_id", client.SessionID)
+				} else {
+					logger.Info("paste lock set",
+						"session_id", client.SessionID,
+						"source", payload.Source,
+						"delta_len", len(payload.Code)-len(previousCode),
+					)
+				}
+			}
+		} else {
+			// no large delta - check if session is locked and if edits are significant enough to unlock
+			locked, err := sessionBuffer.IsPasteLocked(ctx, client.SessionID)
+			if err == nil && locked {
+				baseline, err := sessionBuffer.GetPasteBaseline(ctx, client.SessionID)
+				if err == nil && buffer.IsSignificantEdit(baseline, payload.Code) {
+					// significant edits detected, remove lock
+					if err := sessionBuffer.RemovePasteLock(ctx, client.SessionID); err != nil {
+						logger.ErrorErr(err, "failed to remove paste lock", "session_id", client.SessionID)
+					} else {
+						logger.Info("paste lock removed due to significant edits",
+							"session_id", client.SessionID,
+						)
+					}
+				} else {
+					// refresh TTL while still locked
+					sessionBuffer.RefreshPasteLockTTL(ctx, client.SessionID) //nolint:errcheck // best-effort
+				}
+			}
+		}
+
+		// save code (goes to redis buffer via BufferedRepository)
 		if err := sessionRepo.UpdateSessionCode(ctx, client.SessionID, payload.Code); err != nil {
 			logger.ErrorErr(err, "failed to save code",
 				"client_id", client.ID,

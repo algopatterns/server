@@ -10,6 +10,7 @@ import (
 	"github.com/algrv/server/algorave/strudels"
 	agentcore "github.com/algrv/server/internal/agent"
 	"github.com/algrv/server/internal/attribution"
+	"github.com/algrv/server/internal/buffer"
 	"github.com/algrv/server/internal/errors"
 	"github.com/algrv/server/internal/llm"
 )
@@ -33,7 +34,7 @@ const (
 // @Failure 400 {object} errors.ErrorResponse
 // @Failure 500 {object} errors.ErrorResponse
 // @Router /api/v1/agent/generate [post]
-func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strudels.Repository, attrService *attribution.Service) gin.HandlerFunc {
+func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strudels.Repository, attrService *attribution.Service, sessionBuffer *buffer.SessionBuffer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req GenerateRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -41,11 +42,32 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strud
 			return
 		}
 
+		// paste lock validation (if session_id provided)
+		// decoupled from WebSocket - just check Redis directly
+		if req.SessionID != "" {
+			ctx := c.Request.Context()
+			locked, err := sessionBuffer.IsPasteLocked(ctx, req.SessionID)
+			if err != nil {
+				// fail open on Redis errors - log but allow request
+				log.Printf("failed to check paste lock for session %s: %v", req.SessionID, err)
+			} else if locked {
+				errors.Forbidden(c, "AI assistant temporarily disabled - please make significant edits to the pasted code before using AI. This helps protect code shared with 'no-ai' restrictions.")
+				return
+			}
+		}
+
 		// block AI for forks from strudels with 'no-ai' signal
+		// also block if parent can't be verified (deleted or fake fork ID)
 		// check client-provided forked_from_id (for drafts)
 		if req.ForkedFromID != "" {
 			parentCCSignal, err := strudelRepo.GetStrudelCCSignal(c.Request.Context(), req.ForkedFromID)
-			if err == nil && parentCCSignal != nil && *parentCCSignal == strudels.CCSignalNoAI {
+			if err != nil {
+				// parent strudel doesn't exist - block AI since we can't verify CC signal
+				log.Printf("blocking AI: parent strudel %s not found: %v", req.ForkedFromID, err)
+				errors.Forbidden(c, "AI assistant disabled - the original strudel no longer exists or is invalid")
+				return
+			}
+			if parentCCSignal != nil && *parentCCSignal == strudels.CCSignalNoAI {
 				errors.Forbidden(c, "AI assistant disabled - original author restricted AI use for this strudel")
 				return
 			}
@@ -54,9 +76,17 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strud
 		// also check server-side for saved strudels (can't be bypassed)
 		if req.StrudelID != "" {
 			forkedFromID, err := strudelRepo.GetStrudelForkedFrom(c.Request.Context(), req.StrudelID)
-			if err == nil && forkedFromID != nil {
+			if err != nil {
+				log.Printf("could not retrieve forked_from for strudel %s: %v", req.StrudelID, err)
+			} else if forkedFromID != nil {
 				parentCCSignal, err := strudelRepo.GetStrudelCCSignal(c.Request.Context(), *forkedFromID)
-				if err == nil && parentCCSignal != nil && *parentCCSignal == strudels.CCSignalNoAI {
+				if err != nil {
+					// parent strudel doesn't exist - block AI since we can't verify CC signal
+					log.Printf("blocking AI: parent strudel %s not found: %v", *forkedFromID, err)
+					errors.Forbidden(c, "AI assistant disabled - the original strudel no longer exists")
+					return
+				}
+				if parentCCSignal != nil && *parentCCSignal == strudels.CCSignalNoAI {
 					errors.Forbidden(c, "AI assistant disabled - original author restricted AI use for this strudel")
 					return
 				}

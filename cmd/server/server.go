@@ -81,7 +81,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	hub := ws.NewHub()
 
 	// register websocket message handlers (handlers use sessionRepo interface, unaware of Redis)
-	hub.RegisterHandler(ws.TypeCodeUpdate, ws.CodeUpdateHandler(sessionRepo))
+	hub.RegisterHandler(ws.TypeCodeUpdate, ws.CodeUpdateHandler(sessionRepo, sessionBuffer, strudelRepo))
 	hub.RegisterHandler(ws.TypeChatMessage, ws.ChatHandler(sessionRepo))
 	hub.RegisterHandler(ws.TypePlay, ws.PlayHandler())
 	hub.RegisterHandler(ws.TypeStop, ws.StopHandler())

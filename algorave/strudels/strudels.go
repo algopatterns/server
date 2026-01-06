@@ -49,6 +49,7 @@ func (r *Repository) Create(
 	ccSignal := req.CCSignal
 	if req.ForkedFrom != nil {
 		var parentSignal *CCSignal
+
 		err := r.db.QueryRow(ctx, queryGetParentCCSignal, *req.ForkedFrom).Scan(&parentSignal)
 		if err == nil && parentSignal != nil {
 			// if parent has a signal, child must be at least as restrictive
@@ -118,6 +119,7 @@ func (r *Repository) List(ctx context.Context, userID string, limit, offset int,
 	// get total count first
 	var total int
 	countQuery := "SELECT COUNT(*) FROM user_strudels " + baseWhere
+
 	if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
@@ -162,6 +164,7 @@ func (r *Repository) List(ctx context.Context, userID string, limit, offset int,
 		if err != nil {
 			return nil, 0, err
 		}
+
 		strudels = append(strudels, s)
 	}
 
@@ -314,13 +317,16 @@ func (r *Repository) Update(
 
 	// count AI code responses if conversation history provided
 	var aiAssistCount *int
+
 	if len(req.ConversationHistory) > 0 {
 		count := 0
+
 		for _, msg := range req.ConversationHistory {
 			if msg.IsCodeResponse {
 				count++
 			}
 		}
+
 		aiAssistCount = &count
 	}
 
@@ -638,24 +644,4 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 	}
 
 	return messages, nil
-}
-
-// GetStrudelCCSignal returns the CC Signal for a strudel
-func (r *Repository) GetStrudelCCSignal(ctx context.Context, strudelID string) (*CCSignal, error) {
-	var ccSignal *CCSignal
-	err := r.db.QueryRow(ctx, queryGetParentCCSignal, strudelID).Scan(&ccSignal)
-	if err != nil {
-		return nil, err
-	}
-	return ccSignal, nil
-}
-
-// GetStrudelForkedFrom returns the parent strudel ID if this is a fork
-func (r *Repository) GetStrudelForkedFrom(ctx context.Context, strudelID string) (*string, error) {
-	var forkedFrom *string
-	err := r.db.QueryRow(ctx, queryGetStrudelForkedFrom, strudelID).Scan(&forkedFrom)
-	if err != nil {
-		return nil, err
-	}
-	return forkedFrom, nil
 }
