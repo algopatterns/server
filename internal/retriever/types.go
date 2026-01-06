@@ -31,6 +31,7 @@ type ExampleResult struct {
 	Description string
 	Code        string
 	Tags        []string
+	AuthorName  string
 	URL         string
 	Similarity  float32
 }

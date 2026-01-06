@@ -126,16 +126,33 @@ type ListFilter struct {
 
 // represents an AI conversation message for a saved strudel
 type StrudelMessage struct {
-	ID                  string    `json:"id"`
-	StrudelID           string    `json:"strudel_id"`
-	UserID              *string   `json:"user_id,omitempty"`
-	Role                string    `json:"role"` // user, assistant
-	Content             string    `json:"content"`
-	IsActionable        bool      `json:"is_actionable"`
-	IsCodeResponse      bool      `json:"is_code_response"`
-	ClarifyingQuestions []string  `json:"clarifying_questions,omitempty"`
-	DisplayName         *string   `json:"display_name,omitempty"`
-	CreatedAt           time.Time `json:"created_at"`
+	ID                  string             `json:"id"`
+	StrudelID           string             `json:"strudel_id"`
+	UserID              *string            `json:"user_id,omitempty"`
+	Role                string             `json:"role"` // user, assistant
+	Content             string             `json:"content"`
+	IsActionable        bool               `json:"is_actionable"`
+	IsCodeResponse      bool               `json:"is_code_response"`
+	ClarifyingQuestions []string           `json:"clarifying_questions,omitempty"`
+	StrudelReferences   []StrudelReference `json:"strudel_references,omitempty"`
+	DocReferences       []DocReference     `json:"doc_references,omitempty"`
+	DisplayName         *string            `json:"display_name,omitempty"`
+	CreatedAt           time.Time          `json:"created_at"`
+}
+
+// reference to a strudel used as AI context
+type StrudelReference struct {
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	AuthorName string `json:"author_name"`
+	URL        string `json:"url"`
+}
+
+// reference to documentation used as AI context
+type DocReference struct {
+	PageName     string `json:"page_name"`
+	SectionTitle string `json:"section_title,omitempty"`
+	URL          string `json:"url"`
 }
 
 // contains data for adding a strudel message
@@ -147,5 +164,7 @@ type AddStrudelMessageRequest struct {
 	IsActionable        bool
 	IsCodeResponse      bool
 	ClarifyingQuestions []string
+	StrudelReferences   []StrudelReference
+	DocReferences       []DocReference
 	DisplayName         string
 }

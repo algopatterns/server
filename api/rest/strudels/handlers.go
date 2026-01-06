@@ -130,6 +130,26 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 		// convert to DTO (reverse order since DB returns DESC)
 		conversationHistory := make([]ConversationMessageDTO, len(messages))
 		for i, msg := range messages {
+			// convert strudel references
+			strudelRefs := make([]StrudelReferenceDTO, len(msg.StrudelReferences))
+			for j, ref := range msg.StrudelReferences {
+				strudelRefs[j] = StrudelReferenceDTO{
+					ID:         ref.ID,
+					Title:      ref.Title,
+					AuthorName: ref.AuthorName,
+					URL:        ref.URL,
+				}
+			}
+			// convert doc references
+			docRefs := make([]DocReferenceDTO, len(msg.DocReferences))
+			for j, ref := range msg.DocReferences {
+				docRefs[j] = DocReferenceDTO{
+					PageName:     ref.PageName,
+					SectionTitle: ref.SectionTitle,
+					URL:          ref.URL,
+				}
+			}
+
 			conversationHistory[len(messages)-1-i] = ConversationMessageDTO{
 				ID:                  msg.ID,
 				Role:                msg.Role,
@@ -137,6 +157,8 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 				IsActionable:        msg.IsActionable,
 				IsCodeResponse:      msg.IsCodeResponse,
 				ClarifyingQuestions: msg.ClarifyingQuestions,
+				StrudelReferences:   strudelRefs,
+				DocReferences:       docRefs,
 				CreatedAt:           msg.CreatedAt,
 			}
 		}

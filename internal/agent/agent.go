@@ -103,11 +103,39 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		}
 	}
 
+	// build references for frontend display
+	strudelRefs := make([]StrudelReference, 0, len(examples))
+	for _, ex := range examples {
+		strudelRefs = append(strudelRefs, StrudelReference{
+			ID:         ex.ID,
+			Title:      ex.Title,
+			AuthorName: ex.AuthorName,
+			URL:        fmt.Sprintf("/strudel/%s", ex.ID),
+		})
+	}
+
+	docRefs := make([]DocReference, 0, len(docs))
+	seen := make(map[string]bool) // dedupe by page URL
+	for _, doc := range docs {
+		if seen[doc.PageURL] {
+			continue
+		}
+		seen[doc.PageURL] = true
+		docRefs = append(docRefs, DocReference{
+			PageName:     doc.PageName,
+			SectionTitle: doc.SectionTitle,
+			URL:          doc.PageURL,
+		})
+	}
+
 	return &GenerateResponse{
 		Code:              response.Text,
 		DocsRetrieved:     len(docs),
 		ExamplesRetrieved: len(examples),
 		Examples:          examples,
+		Docs:              docs,
+		StrudelReferences: strudelRefs,
+		DocReferences:     docRefs,
 		Model:             textGenerator.Model(),
 		IsActionable:      true,
 		IsCodeResponse:    analysis.IsCodeRequest,

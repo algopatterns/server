@@ -14,15 +14,17 @@ const (
 
 	searchExamplesQuery = `
 		SELECT
-			id::text,
-			title,
-			description,
-			code,
-			tags,
-			user_id::text,
+			s.id::text,
+			s.title,
+			s.description,
+			s.code,
+			s.tags,
+			s.user_id::text,
+			COALESCE(u.display_name, 'Anonymous') as author_name,
 			'' as url,
-			similarity
-		FROM search_user_strudels($1, $2)
+			s.similarity
+		FROM search_user_strudels($1, $2) s
+		LEFT JOIN users u ON s.user_id = u.id
 	`
 
 	bm25SearchDocsQuery = `
@@ -47,6 +49,7 @@ const (
 			us.description,
 			us.code,
 			us.tags,
+			COALESCE(u.display_name, 'Anonymous') as author_name,
 			'' as url,
 			ts_rank(us.searchable_tsvector, websearch_to_tsquery('english', $1)) as rank
 		FROM user_strudels us

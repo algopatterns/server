@@ -185,6 +185,25 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strud
 
 			hasContent := resp.Code != "" || len(resp.ClarifyingQuestions) > 0
 			if hasContent {
+				// convert agent references to strudels package types for persistence
+				strudelRefsForDB := make([]strudels.StrudelReference, len(resp.StrudelReferences))
+				for i, ref := range resp.StrudelReferences {
+					strudelRefsForDB[i] = strudels.StrudelReference{
+						ID:         ref.ID,
+						Title:      ref.Title,
+						AuthorName: ref.AuthorName,
+						URL:        ref.URL,
+					}
+				}
+				docRefsForDB := make([]strudels.DocReference, len(resp.DocReferences))
+				for i, ref := range resp.DocReferences {
+					docRefsForDB[i] = strudels.DocReference{
+						PageName:     ref.PageName,
+						SectionTitle: ref.SectionTitle,
+						URL:          ref.URL,
+					}
+				}
+
 				if _, err := strudelRepo.AddStrudelMessage(ctx, &strudels.AddStrudelMessageRequest{
 					StrudelID:           req.StrudelID,
 					Role:                "assistant",
@@ -192,9 +211,31 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strud
 					IsActionable:        resp.IsActionable,
 					IsCodeResponse:      resp.IsCodeResponse,
 					ClarifyingQuestions: resp.ClarifyingQuestions,
+					StrudelReferences:   strudelRefsForDB,
+					DocReferences:       docRefsForDB,
 				}); err != nil {
 					log.Printf("failed to persist assistant message for strudel %s: %v", req.StrudelID, err)
 				}
+			}
+		}
+
+		// map internal references to API types
+		strudelRefs := make([]StrudelReference, len(resp.StrudelReferences))
+		for i, ref := range resp.StrudelReferences {
+			strudelRefs[i] = StrudelReference{
+				ID:         ref.ID,
+				Title:      ref.Title,
+				AuthorName: ref.AuthorName,
+				URL:        ref.URL,
+			}
+		}
+
+		docRefs := make([]DocReference, len(resp.DocReferences))
+		for i, ref := range resp.DocReferences {
+			docRefs[i] = DocReference{
+				PageName:     ref.PageName,
+				SectionTitle: ref.SectionTitle,
+				URL:          ref.URL,
 			}
 		}
 
@@ -205,6 +246,8 @@ func GenerateHandler(agentClient *agentcore.Agent, _ llm.LLM, strudelRepo *strud
 			ClarifyingQuestions: resp.ClarifyingQuestions,
 			DocsRetrieved:       resp.DocsRetrieved,
 			ExamplesRetrieved:   resp.ExamplesRetrieved,
+			StrudelReferences:   strudelRefs,
+			DocReferences:       docRefs,
 			Model:               resp.Model,
 		})
 	}

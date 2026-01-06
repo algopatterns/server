@@ -550,8 +550,9 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		displayName = &req.DisplayName
 	}
 
-	// marshal clarifying questions to JSON string for JSONB storage
-	var clarifyingQuestionsJSON *string
+	// marshal JSONB fields
+	var clarifyingQuestionsJSON, strudelReferencesJSON, docReferencesJSON *string
+
 	if len(req.ClarifyingQuestions) > 0 {
 		jsonBytes, err := json.Marshal(req.ClarifyingQuestions)
 		if err != nil {
@@ -561,7 +562,25 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		clarifyingQuestionsJSON = &jsonStr
 	}
 
-	var returnedClarifyingQuestionsJSON []byte
+	if len(req.StrudelReferences) > 0 {
+		jsonBytes, err := json.Marshal(req.StrudelReferences)
+		if err != nil {
+			return nil, err
+		}
+		jsonStr := string(jsonBytes)
+		strudelReferencesJSON = &jsonStr
+	}
+
+	if len(req.DocReferences) > 0 {
+		jsonBytes, err := json.Marshal(req.DocReferences)
+		if err != nil {
+			return nil, err
+		}
+		jsonStr := string(jsonBytes)
+		docReferencesJSON = &jsonStr
+	}
+
+	var returnedClarifyingQuestionsJSON, returnedStrudelReferencesJSON, returnedDocReferencesJSON []byte
 	err := r.db.QueryRow(
 		ctx,
 		queryAddStrudelMessage,
@@ -572,6 +591,8 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		req.IsActionable,
 		req.IsCodeResponse,
 		clarifyingQuestionsJSON,
+		strudelReferencesJSON,
+		docReferencesJSON,
 		displayName,
 	).Scan(
 		&msg.ID,
@@ -582,6 +603,8 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		&msg.IsActionable,
 		&msg.IsCodeResponse,
 		&returnedClarifyingQuestionsJSON,
+		&returnedStrudelReferencesJSON,
+		&returnedDocReferencesJSON,
 		&msg.DisplayName,
 		&msg.CreatedAt,
 	)
@@ -590,9 +613,19 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		return nil, err
 	}
 
-	// unmarshal clarifying questions from JSONB
+	// unmarshal JSONB fields
 	if len(returnedClarifyingQuestionsJSON) > 0 {
 		if err := json.Unmarshal(returnedClarifyingQuestionsJSON, &msg.ClarifyingQuestions); err != nil {
+			return nil, err
+		}
+	}
+	if len(returnedStrudelReferencesJSON) > 0 {
+		if err := json.Unmarshal(returnedStrudelReferencesJSON, &msg.StrudelReferences); err != nil {
+			return nil, err
+		}
+	}
+	if len(returnedDocReferencesJSON) > 0 {
+		if err := json.Unmarshal(returnedDocReferencesJSON, &msg.DocReferences); err != nil {
 			return nil, err
 		}
 	}
@@ -612,7 +645,7 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 
 	for rows.Next() {
 		var msg StrudelMessage
-		var clarifyingQuestionsJSON []byte
+		var clarifyingQuestionsJSON, strudelReferencesJSON, docReferencesJSON []byte
 		err := rows.Scan(
 			&msg.ID,
 			&msg.StrudelID,
@@ -622,6 +655,8 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 			&msg.IsActionable,
 			&msg.IsCodeResponse,
 			&clarifyingQuestionsJSON,
+			&strudelReferencesJSON,
+			&docReferencesJSON,
 			&msg.DisplayName,
 			&msg.CreatedAt,
 		)
@@ -629,9 +664,19 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 			return nil, err
 		}
 
-		// unmarshal clarifying questions from JSONB
+		// unmarshal JSONB fields
 		if len(clarifyingQuestionsJSON) > 0 {
 			if err := json.Unmarshal(clarifyingQuestionsJSON, &msg.ClarifyingQuestions); err != nil {
+				return nil, err
+			}
+		}
+		if len(strudelReferencesJSON) > 0 {
+			if err := json.Unmarshal(strudelReferencesJSON, &msg.StrudelReferences); err != nil {
+				return nil, err
+			}
+		}
+		if len(docReferencesJSON) > 0 {
+			if err := json.Unmarshal(docReferencesJSON, &msg.DocReferences); err != nil {
 				return nil, err
 			}
 		}
