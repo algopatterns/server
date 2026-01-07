@@ -27,13 +27,13 @@ type StrudelStats struct {
 }
 
 type StrudelUse struct {
-	ID                    string     `json:"id"`
-	TargetStrudelID       *string    `json:"target_strudel_id,omitempty"`
-	TargetStrudelTitle    *string    `json:"target_strudel_title,omitempty"`
-	RequestingUserID      *string    `json:"requesting_user_id,omitempty"`
-	RequestingDisplayName *string    `json:"requesting_display_name,omitempty"`
-	SimilarityScore       *float32   `json:"similarity_score,omitempty"`
-	CreatedAt             time.Time  `json:"created_at"`
+	ID                    string    `json:"id"`
+	TargetStrudelID       *string   `json:"target_strudel_id,omitempty"`
+	TargetStrudelTitle    *string   `json:"target_strudel_title,omitempty"`
+	RequestingUserID      *string   `json:"requesting_user_id,omitempty"`
+	RequestingDisplayName *string   `json:"requesting_display_name,omitempty"`
+	SimilarityScore       *float32  `json:"similarity_score,omitempty"`
+	CreatedAt             time.Time `json:"created_at"`
 }
 
 type StrudelStatsResponse struct {

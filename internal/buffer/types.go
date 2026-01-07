@@ -36,7 +36,7 @@ const (
 // paste detection constants
 const (
 	PasteLockTTL        = 1 * time.Hour
-	PasteDeltaThreshold = 200 // characters added in single update
-	PasteLineThreshold  = 50  // lines added in single update
+	PasteDeltaThreshold = 200  // characters added in single update
+	PasteLineThreshold  = 50   // lines added in single update
 	UnlockThreshold     = 0.30 // 30% edit distance required to unlock
 )

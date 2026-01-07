@@ -173,9 +173,9 @@ func TestMemoryLockStore_Concurrent(_ *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			sessionID := string(rune('a' + id%26))
-			_ = store.SetLock(ctx, sessionID, "baseline", time.Hour)   //nolint:errcheck // stress test
-			_, _ = store.GetLock(ctx, sessionID)                       //nolint:errcheck // stress test
-			_ = store.RefreshTTL(ctx, sessionID, time.Hour)            //nolint:errcheck // stress test
+			_ = store.SetLock(ctx, sessionID, "baseline", time.Hour) //nolint:errcheck // stress test
+			_, _ = store.GetLock(ctx, sessionID)                     //nolint:errcheck // stress test
+			_ = store.RefreshTTL(ctx, sessionID, time.Hour)          //nolint:errcheck // stress test
 		}(i)
 	}
 

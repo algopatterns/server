@@ -8,43 +8,43 @@ func TestSimHasher_Hash(t *testing.T) {
 	hasher := NewSimHasher(3)
 
 	tests := []struct {
-		name    string
-		content string
+		name        string
+		content     string
 		wantNonZero bool
 	}{
 		{
-			name:    "normal text",
-			content: "the quick brown fox jumps over the lazy dog",
+			name:        "normal text",
+			content:     "the quick brown fox jumps over the lazy dog",
 			wantNonZero: true,
 		},
 		{
-			name:    "empty string",
-			content: "",
+			name:        "empty string",
+			content:     "",
 			wantNonZero: false,
 		},
 		{
-			name:    "only whitespace",
-			content: "   \t\n  ",
+			name:        "only whitespace",
+			content:     "   \t\n  ",
 			wantNonZero: false,
 		},
 		{
-			name:    "only punctuation",
-			content: "!@#$%^&*()",
+			name:        "only punctuation",
+			content:     "!@#$%^&*()",
 			wantNonZero: false,
 		},
 		{
-			name:    "single word",
-			content: "hello",
+			name:        "single word",
+			content:     "hello",
 			wantNonZero: true,
 		},
 		{
-			name:    "two words",
-			content: "hello world",
+			name:        "two words",
+			content:     "hello world",
 			wantNonZero: true,
 		},
 		{
-			name:    "code snippet",
-			content: "function foo() { return 42; }",
+			name:        "code snippet",
+			content:     "function foo() { return 42; }",
 			wantNonZero: true,
 		},
 	}

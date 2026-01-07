@@ -40,8 +40,8 @@ func TestCCSignal_AllowsAI(t *testing.T) {
 		{SignalEcosystem, true},
 		{SignalOpen, true},
 		{SignalNoAI, false},
-		{"", true},         // empty allows AI (fail open)
-		{"unknown", true},  // unknown allows AI (fail open)
+		{"", true},        // empty allows AI (fail open)
+		{"unknown", true}, // unknown allows AI (fail open)
 	}
 
 	for _, tt := range tests {

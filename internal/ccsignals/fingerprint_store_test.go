@@ -44,6 +44,7 @@ func TestMemoryFingerprintStore_Delete(t *testing.T) {
 		ID:     "record1",
 		WorkID: "work1",
 	}
+
 	if err := store.Store(ctx, record); err != nil {
 		t.Fatalf("failed to store: %v", err)
 	}
@@ -186,7 +187,7 @@ func TestMemoryFingerprintStore_Concurrent(_ *testing.T) {
 	var wg sync.WaitGroup
 
 	// concurrent writes - stress test, errors not checked intentionally
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -194,13 +195,13 @@ func TestMemoryFingerprintStore_Concurrent(_ *testing.T) {
 				ID:     string(rune('a' + id%26)),
 				WorkID: string(rune('A' + id%26)),
 			}
-			_ = store.Store(ctx, record)          //nolint:errcheck // stress test
+			_ = store.Store(ctx, record)                 //nolint:errcheck // stress test
 			_, _ = store.GetByWorkID(ctx, record.WorkID) //nolint:errcheck // stress test
 		}(i)
 	}
 
 	// concurrent reads - stress test, errors not checked intentionally
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
