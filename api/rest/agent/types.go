@@ -8,6 +8,8 @@ type GenerateRequest struct {
 	Provider            string    `json:"provider,omitempty"`         // "anthropic" or "openai"
 	ProviderAPIKey      string    `json:"provider_api_key,omitempty"` // BYOK key
 	StrudelID           string    `json:"strudel_id,omitempty"`       // optional: for persisting conversation
+	ForkedFromID        string    `json:"forked_from_id,omitempty"`   // optional: for blocking AI on restricted forks
+	SessionID           string    `json:"session_id,omitempty"`       // optional: for paste lock validation
 }
 
 // conversation message
@@ -16,13 +18,30 @@ type Message struct {
 	Content string `json:"content"`
 }
 
+// reference to a strudel used as context
+type StrudelReference struct {
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	AuthorName string `json:"author_name"`
+	URL        string `json:"url"`
+}
+
+// reference to documentation used as context
+type DocReference struct {
+	PageName     string `json:"page_name"`
+	SectionTitle string `json:"section_title,omitempty"`
+	URL          string `json:"url"`
+}
+
 // response payload for AI code generation
 type GenerateResponse struct {
-	Code                string   `json:"code,omitempty"`
-	IsActionable        bool     `json:"is_actionable"`
-	IsCodeResponse      bool     `json:"is_code_response"`
-	ClarifyingQuestions []string `json:"clarifying_questions,omitempty"`
-	DocsRetrieved       int      `json:"docs_retrieved"`
-	ExamplesRetrieved   int      `json:"examples_retrieved"`
-	Model               string   `json:"model"`
+	Code                string             `json:"code,omitempty"`
+	IsActionable        bool               `json:"is_actionable"`
+	IsCodeResponse      bool               `json:"is_code_response"`
+	ClarifyingQuestions []string           `json:"clarifying_questions,omitempty"`
+	DocsRetrieved       int                `json:"docs_retrieved"`
+	ExamplesRetrieved   int                `json:"examples_retrieved"`
+	StrudelReferences   []StrudelReference `json:"strudel_references,omitempty"`
+	DocReferences       []DocReference     `json:"doc_references,omitempty"`
+	Model               string             `json:"model"`
 }

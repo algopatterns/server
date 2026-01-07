@@ -7,6 +7,7 @@ import (
 
 	"github.com/algrv/server/algorave/strudels"
 	"github.com/algrv/server/api/rest/pagination"
+	"github.com/algrv/server/internal/attribution"
 	"github.com/algrv/server/internal/auth"
 	"github.com/algrv/server/internal/errors"
 	"github.com/gin-gonic/gin"
@@ -129,6 +130,26 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 		// convert to DTO (reverse order since DB returns DESC)
 		conversationHistory := make([]ConversationMessageDTO, len(messages))
 		for i, msg := range messages {
+			// convert strudel references
+			strudelRefs := make([]StrudelReferenceDTO, len(msg.StrudelReferences))
+			for j, ref := range msg.StrudelReferences {
+				strudelRefs[j] = StrudelReferenceDTO{
+					ID:         ref.ID,
+					Title:      ref.Title,
+					AuthorName: ref.AuthorName,
+					URL:        ref.URL,
+				}
+			}
+			// convert doc references
+			docRefs := make([]DocReferenceDTO, len(msg.DocReferences))
+			for j, ref := range msg.DocReferences {
+				docRefs[j] = DocReferenceDTO{
+					PageName:     ref.PageName,
+					SectionTitle: ref.SectionTitle,
+					URL:          ref.URL,
+				}
+			}
+
 			conversationHistory[len(messages)-1-i] = ConversationMessageDTO{
 				ID:                  msg.ID,
 				Role:                msg.Role,
@@ -136,6 +157,8 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 				IsActionable:        msg.IsActionable,
 				IsCodeResponse:      msg.IsCodeResponse,
 				ClarifyingQuestions: msg.ClarifyingQuestions,
+				StrudelReferences:   strudelRefs,
+				DocReferences:       docRefs,
 				CreatedAt:           msg.CreatedAt,
 			}
 		}
@@ -146,6 +169,7 @@ func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 			Title:               strudel.Title,
 			Code:                strudel.Code,
 			IsPublic:            strudel.IsPublic,
+			CCSignal:            strudel.CCSignal,
 			Description:         strudel.Description,
 			Tags:                strudel.Tags,
 			Categories:          strudel.Categories,
@@ -389,4 +413,40 @@ func parseFilterParams(c *gin.Context) strudels.ListFilter {
 	}
 
 	return filter
+}
+
+// GetStrudelStatsHandler godoc
+// @Summary Get strudel usage stats
+// @Description Get attribution stats for a public strudel (how many times it was used as RAG context)
+// @Tags strudels
+// @Produce json
+// @Param id path string true "Strudel ID (UUID)"
+// @Success 200 {object} attribution.StrudelStatsResponse
+// @Failure 404 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Router /api/v1/public/strudels/{id}/stats [get]
+func GetStrudelStatsHandler(strudelRepo *strudels.Repository, attrService *attribution.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		strudelID := c.Param("id")
+
+		if !errors.IsValidUUID(strudelID) {
+			errors.BadRequest(c, "invalid strudel ID format", nil)
+			return
+		}
+
+		// verify strudel exists and is public
+		_, err := strudelRepo.GetPublic(c.Request.Context(), strudelID)
+		if err != nil {
+			errors.NotFound(c, "strudel")
+			return
+		}
+
+		stats, err := attrService.GetStrudelStatsResponse(c.Request.Context(), strudelID)
+		if err != nil {
+			errors.InternalError(c, "failed to get strudel stats", err)
+			return
+		}
+
+		c.JSON(http.StatusOK, stats)
+	}
 }

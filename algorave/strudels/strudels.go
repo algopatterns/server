@@ -37,6 +37,28 @@ func (r *Repository) Create(
 		categories = []string{}
 	}
 
+	// count AI code responses from conversation history
+	aiAssistCount := 0
+	for _, msg := range req.ConversationHistory {
+		if msg.IsCodeResponse {
+			aiAssistCount++
+		}
+	}
+
+	// if forked, inherit most restrictive cc_signal from parent
+	ccSignal := req.CCSignal
+	if req.ForkedFrom != nil {
+		var parentSignal *CCSignal
+
+		err := r.db.QueryRow(ctx, queryGetParentCCSignal, *req.ForkedFrom).Scan(&parentSignal)
+		if err == nil && parentSignal != nil {
+			// if parent has a signal, child must be at least as restrictive
+			if ccSignal == nil || parentSignal.MoreRestrictiveThan(*ccSignal) {
+				ccSignal = parentSignal
+			}
+		}
+	}
+
 	err := r.db.QueryRow(
 		ctx,
 		queryCreate,
@@ -44,6 +66,9 @@ func (r *Repository) Create(
 		req.Title,
 		req.Code,
 		req.IsPublic,
+		ccSignal,
+		aiAssistCount,
+		req.ForkedFrom,
 		req.Description,
 		tags,
 		categories,
@@ -54,7 +79,10 @@ func (r *Repository) Create(
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.CCSignal,
 		&strudel.UseInTraining,
+		&strudel.AIAssistCount,
+		&strudel.ForkedFrom,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -91,13 +119,14 @@ func (r *Repository) List(ctx context.Context, userID string, limit, offset int,
 	// get total count first
 	var total int
 	countQuery := "SELECT COUNT(*) FROM user_strudels " + baseWhere
+
 	if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	// build list query
 	listQuery := fmt.Sprintf(`
-		SELECT id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
+		SELECT id, user_id, title, code, is_public, cc_signal, use_in_training, ai_assist_count, forked_from, description, tags, categories, conversation_history, created_at, updated_at
 		FROM user_strudels
 		%s
 		ORDER BY created_at DESC
@@ -121,7 +150,10 @@ func (r *Repository) List(ctx context.Context, userID string, limit, offset int,
 			&s.Title,
 			&s.Code,
 			&s.IsPublic,
+			&s.CCSignal,
 			&s.UseInTraining,
+			&s.AIAssistCount,
+			&s.ForkedFrom,
 			&s.Description,
 			&s.Tags,
 			&s.Categories,
@@ -132,6 +164,7 @@ func (r *Repository) List(ctx context.Context, userID string, limit, offset int,
 		if err != nil {
 			return nil, 0, err
 		}
+
 		strudels = append(strudels, s)
 	}
 
@@ -170,7 +203,7 @@ func (r *Repository) ListPublic(ctx context.Context, limit, offset int, filter L
 
 	// build list query
 	listQuery := fmt.Sprintf(`
-		SELECT id, user_id, title, code, is_public, use_in_training, description, tags, categories, conversation_history, created_at, updated_at
+		SELECT id, user_id, title, code, is_public, cc_signal, use_in_training, ai_assist_count, forked_from, description, tags, categories, conversation_history, created_at, updated_at
 		FROM user_strudels
 		%s
 		ORDER BY created_at DESC
@@ -194,7 +227,10 @@ func (r *Repository) ListPublic(ctx context.Context, limit, offset int, filter L
 			&s.Title,
 			&s.Code,
 			&s.IsPublic,
+			&s.CCSignal,
 			&s.UseInTraining,
+			&s.AIAssistCount,
+			&s.ForkedFrom,
 			&s.Description,
 			&s.Tags,
 			&s.Categories,
@@ -225,7 +261,10 @@ func (r *Repository) GetPublic(ctx context.Context, strudelID string) (*Strudel,
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.CCSignal,
 		&strudel.UseInTraining,
+		&strudel.AIAssistCount,
+		&strudel.ForkedFrom,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -250,7 +289,10 @@ func (r *Repository) Get(ctx context.Context, strudelID, userID string) (*Strude
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.CCSignal,
 		&strudel.UseInTraining,
+		&strudel.AIAssistCount,
+		&strudel.ForkedFrom,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -273,12 +315,29 @@ func (r *Repository) Update(
 ) (*Strudel, error) {
 	var strudel Strudel
 
+	// count AI code responses if conversation history provided
+	var aiAssistCount *int
+
+	if len(req.ConversationHistory) > 0 {
+		count := 0
+
+		for _, msg := range req.ConversationHistory {
+			if msg.IsCodeResponse {
+				count++
+			}
+		}
+
+		aiAssistCount = &count
+	}
+
 	err := r.db.QueryRow(
 		ctx,
 		queryUpdate,
 		req.Title,
 		req.Code,
 		req.IsPublic,
+		req.CCSignal,
+		aiAssistCount,
 		req.Description,
 		req.Tags,
 		req.Categories,
@@ -291,7 +350,10 @@ func (r *Repository) Update(
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.CCSignal,
 		&strudel.UseInTraining,
+		&strudel.AIAssistCount,
+		&strudel.ForkedFrom,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -339,7 +401,10 @@ func (r *Repository) ListTrainableWithoutEmbedding(ctx context.Context, limit in
 			&s.Title,
 			&s.Code,
 			&s.IsPublic,
+			&s.CCSignal,
 			&s.UseInTraining,
+			&s.AIAssistCount,
+			&s.ForkedFrom,
 			&s.Description,
 			&s.Tags,
 			&s.Categories,
@@ -376,7 +441,10 @@ func (r *Repository) AdminGetStrudel(ctx context.Context, strudelID string) (*St
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.CCSignal,
 		&strudel.UseInTraining,
+		&strudel.AIAssistCount,
+		&strudel.ForkedFrom,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -402,7 +470,10 @@ func (r *Repository) AdminSetUseInTraining(ctx context.Context, strudelID string
 		&strudel.Title,
 		&strudel.Code,
 		&strudel.IsPublic,
+		&strudel.CCSignal,
 		&strudel.UseInTraining,
+		&strudel.AIAssistCount,
+		&strudel.ForkedFrom,
 		&strudel.Description,
 		&strudel.Tags,
 		&strudel.Categories,
@@ -479,8 +550,9 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		displayName = &req.DisplayName
 	}
 
-	// marshal clarifying questions to JSON string for JSONB storage
-	var clarifyingQuestionsJSON *string
+	// marshal JSONB fields
+	var clarifyingQuestionsJSON, strudelReferencesJSON, docReferencesJSON *string
+
 	if len(req.ClarifyingQuestions) > 0 {
 		jsonBytes, err := json.Marshal(req.ClarifyingQuestions)
 		if err != nil {
@@ -490,7 +562,25 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		clarifyingQuestionsJSON = &jsonStr
 	}
 
-	var returnedClarifyingQuestionsJSON []byte
+	if len(req.StrudelReferences) > 0 {
+		jsonBytes, err := json.Marshal(req.StrudelReferences)
+		if err != nil {
+			return nil, err
+		}
+		jsonStr := string(jsonBytes)
+		strudelReferencesJSON = &jsonStr
+	}
+
+	if len(req.DocReferences) > 0 {
+		jsonBytes, err := json.Marshal(req.DocReferences)
+		if err != nil {
+			return nil, err
+		}
+		jsonStr := string(jsonBytes)
+		docReferencesJSON = &jsonStr
+	}
+
+	var returnedClarifyingQuestionsJSON, returnedStrudelReferencesJSON, returnedDocReferencesJSON []byte
 	err := r.db.QueryRow(
 		ctx,
 		queryAddStrudelMessage,
@@ -501,6 +591,8 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		req.IsActionable,
 		req.IsCodeResponse,
 		clarifyingQuestionsJSON,
+		strudelReferencesJSON,
+		docReferencesJSON,
 		displayName,
 	).Scan(
 		&msg.ID,
@@ -511,6 +603,8 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		&msg.IsActionable,
 		&msg.IsCodeResponse,
 		&returnedClarifyingQuestionsJSON,
+		&returnedStrudelReferencesJSON,
+		&returnedDocReferencesJSON,
 		&msg.DisplayName,
 		&msg.CreatedAt,
 	)
@@ -519,9 +613,19 @@ func (r *Repository) AddStrudelMessage(ctx context.Context, req *AddStrudelMessa
 		return nil, err
 	}
 
-	// unmarshal clarifying questions from JSONB
+	// unmarshal JSONB fields
 	if len(returnedClarifyingQuestionsJSON) > 0 {
 		if err := json.Unmarshal(returnedClarifyingQuestionsJSON, &msg.ClarifyingQuestions); err != nil {
+			return nil, err
+		}
+	}
+	if len(returnedStrudelReferencesJSON) > 0 {
+		if err := json.Unmarshal(returnedStrudelReferencesJSON, &msg.StrudelReferences); err != nil {
+			return nil, err
+		}
+	}
+	if len(returnedDocReferencesJSON) > 0 {
+		if err := json.Unmarshal(returnedDocReferencesJSON, &msg.DocReferences); err != nil {
 			return nil, err
 		}
 	}
@@ -541,7 +645,7 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 
 	for rows.Next() {
 		var msg StrudelMessage
-		var clarifyingQuestionsJSON []byte
+		var clarifyingQuestionsJSON, strudelReferencesJSON, docReferencesJSON []byte
 		err := rows.Scan(
 			&msg.ID,
 			&msg.StrudelID,
@@ -551,6 +655,8 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 			&msg.IsActionable,
 			&msg.IsCodeResponse,
 			&clarifyingQuestionsJSON,
+			&strudelReferencesJSON,
+			&docReferencesJSON,
 			&msg.DisplayName,
 			&msg.CreatedAt,
 		)
@@ -558,9 +664,19 @@ func (r *Repository) GetStrudelMessages(ctx context.Context, strudelID string, l
 			return nil, err
 		}
 
-		// unmarshal clarifying questions from JSONB
+		// unmarshal JSONB fields
 		if len(clarifyingQuestionsJSON) > 0 {
 			if err := json.Unmarshal(clarifyingQuestionsJSON, &msg.ClarifyingQuestions); err != nil {
+				return nil, err
+			}
+		}
+		if len(strudelReferencesJSON) > 0 {
+			if err := json.Unmarshal(strudelReferencesJSON, &msg.StrudelReferences); err != nil {
+				return nil, err
+			}
+		}
+		if len(docReferencesJSON) > 0 {
+			if err := json.Unmarshal(docReferencesJSON, &msg.DocReferences); err != nil {
 				return nil, err
 			}
 		}

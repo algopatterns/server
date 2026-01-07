@@ -46,6 +46,9 @@ const (
 
 	// is sent when host ends the session
 	TypeSessionEnded = "session_ended"
+
+	// is sent when paste lock status changes
+	TypePasteLockChanged = "paste_lock_changed"
 )
 
 // client connection constants
@@ -108,6 +111,7 @@ type CodeUpdatePayload struct {
 	CursorLine  int    `json:"cursor_line,omitempty"`
 	CursorCol   int    `json:"cursor_col,omitempty"`
 	DisplayName string `json:"display_name,omitempty"`
+	Source      string `json:"source,omitempty"` // 'typed' | 'loaded_strudel' | 'forked' | 'paste'
 }
 
 // contains information about a newly joined user
@@ -170,6 +174,12 @@ type StopPayload struct {
 // contains session termination information
 type SessionEndedPayload struct {
 	Reason string `json:"reason,omitempty"`
+}
+
+// contains paste lock status change
+type PasteLockChangedPayload struct {
+	Locked bool   `json:"locked"`
+	Reason string `json:"reason,omitempty"` // "paste_detected", "edits_sufficient", "ttl_expired"
 }
 
 // represents a websocket client connection

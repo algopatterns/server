@@ -90,6 +90,8 @@ func (c *Client) SearchExamples(ctx context.Context, queryText string, topK int)
 			&result.Description,
 			&result.Code,
 			&result.Tags,
+			&result.UserID,
+			&result.AuthorName,
 			&result.URL,
 			&result.Similarity,
 		)
@@ -159,10 +161,12 @@ func (c *Client) BM25SearchExamples(ctx context.Context, queryText string, topK 
 
 		err := rows.Scan(
 			&result.ID,
+			&result.UserID,
 			&result.Title,
 			&result.Description,
 			&result.Code,
 			&result.Tags,
+			&result.AuthorName,
 			&result.URL,
 			&rank,
 		)

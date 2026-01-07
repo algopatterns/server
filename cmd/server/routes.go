@@ -6,6 +6,7 @@ import (
 	"github.com/algrv/server/api/rest/auth"
 	"github.com/algrv/server/api/rest/collaboration"
 	"github.com/algrv/server/api/rest/health"
+	"github.com/algrv/server/api/rest/notifications"
 	"github.com/algrv/server/api/rest/strudels"
 	"github.com/algrv/server/api/rest/users"
 	"github.com/algrv/server/api/websocket"
@@ -23,11 +24,12 @@ func RegisterRoutes(router *gin.Engine, server *Server) {
 		v1.GET("/ping", health.PingHandler)
 
 		auth.RegisterRoutes(v1, server.userRepo)
-		strudels.RegisterRoutes(v1, server.strudelRepo)
+		strudels.RegisterRoutes(v1, server.strudelRepo, server.services.Attribution)
 		collaboration.RegisterRoutes(v1, server.sessionRepo, server.hub)
 		users.RegisterRoutes(v1, server.db)
 		admin.RegisterRoutes(v1, server.strudelRepo)
-		agent.RegisterRoutes(v1, server.services.Agent, server.services.LLM, server.strudelRepo)
+		agent.RegisterRoutes(v1, server.services.Agent, server.services.LLM, server.strudelRepo, server.services.Attribution, server.buffer)
+		notifications.RegisterRoutes(v1, server.services.Notifications)
 		websocket.RegisterRoutes(v1, server.hub, server.sessionRepo)
 	}
 }

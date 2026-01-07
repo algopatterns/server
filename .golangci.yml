@@ -53,6 +53,7 @@ linters:
         - '-ST1005' # Disable error string punctuation requirement
         - '-ST1020' # Disable function comment format requirement
         - '-ST1021' # Disable type comment format requirement
+        - '-ST1022' # Disable const comment format requirement
   exclusions:
     generated: lax
     rules:

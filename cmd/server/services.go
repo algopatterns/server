@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 
 	"github.com/algrv/server/internal/agent"
+	"github.com/algrv/server/internal/attribution"
 	"github.com/algrv/server/internal/config"
 	"github.com/algrv/server/internal/llm"
 	"github.com/algrv/server/internal/logger"
+	"github.com/algrv/server/internal/notifications"
 	"github.com/algrv/server/internal/retriever"
 	"github.com/algrv/server/internal/storage"
 	"github.com/algrv/server/internal/strudel"
@@ -41,13 +43,17 @@ func InitializeServices(_ *config.Config, db *pgxpool.Pool) (*Services, error) {
 	}
 
 	agentClient := agent.NewWithValidator(retrieverClient, llmClient, validator)
+	attrService := attribution.New(db)
+	notifService := notifications.New(db)
 
 	return &Services{
-		Agent:     agentClient,
-		LLM:       llmClient,
-		Retriever: retrieverClient,
-		Storage:   storageClient,
-		Validator: validator,
+		Agent:         agentClient,
+		Attribution:   attrService,
+		Notifications: notifService,
+		LLM:           llmClient,
+		Retriever:     retrieverClient,
+		Storage:       storageClient,
+		Validator:     validator,
 	}, nil
 }
 

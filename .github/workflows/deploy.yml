@@ -5,16 +5,42 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }} 
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    env:
+      # Auto-deploy from main goes to production, manual dispatch uses selected environment
+      DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'production' }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set environment variables
+        id: vars
+        run: |
+          if [ "${{ env.DEPLOY_ENV }}" = "production" ]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "container=algorave" >> $GITHUB_OUTPUT
+            echo "port=8080" >> $GITHUB_OUTPUT
+          else
+            echo "tag=staging" >> $GITHUB_OUTPUT
+            echo "container=algorave-staging" >> $GITHUB_OUTPUT
+            echo "port=8081" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -31,7 +57,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/algorave-server:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/algorave-server:${{ steps.vars.outputs.tag }}
 
       - name: Deploy to Lightsail
         uses: appleboy/ssh-action@v1.0.3
@@ -40,8 +66,15 @@ jobs:
           username: ubuntu
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/algorave-server:latest
-            docker stop algorave || true
-            docker rm algorave || true
-            docker run -d -p 8080:8080 --name algorave --restart unless-stopped --env-file ~/.env ${{ secrets.DOCKERHUB_USERNAME }}/algorave-server:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/algorave-server:${{ steps.vars.outputs.tag }}
+            docker stop ${{ steps.vars.outputs.container }} || true
+            docker rm ${{ steps.vars.outputs.container }} || true
+            docker run -d -p ${{ steps.vars.outputs.port }}:8080 --name ${{ steps.vars.outputs.container }} --restart unless-stopped --env-file ~/.env ${{ secrets.DOCKERHUB_USERNAME }}/algorave-server:${{ steps.vars.outputs.tag }}
             docker image prune -f
+
+      - name: Deployment summary
+        run: |
+          echo "🚀 Deployed to ${{ env.DEPLOY_ENV }}"
+          echo "   Container: ${{ steps.vars.outputs.container }}"
+          echo "   Port: ${{ steps.vars.outputs.port }}"
+          echo "   Tag: ${{ steps.vars.outputs.tag }}"

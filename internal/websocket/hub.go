@@ -350,6 +350,14 @@ func (h *Hub) GetSessionCount() int {
 	return len(h.sessions)
 }
 
+// IsSessionActive checks if a session has any active WebSocket connections
+func (h *Hub) IsSessionActive(sessionID string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	sessionClients, exists := h.sessions[sessionID]
+	return exists && len(sessionClients) > 0
+}
+
 func (h *Hub) Shutdown() {
 	if h.running {
 		close(h.shutdown)

@@ -5,9 +5,11 @@ import (
 	"github.com/algrv/server/algorave/strudels"
 	"github.com/algrv/server/algorave/users"
 	"github.com/algrv/server/internal/agent"
+	"github.com/algrv/server/internal/attribution"
 	"github.com/algrv/server/internal/buffer"
 	"github.com/algrv/server/internal/config"
 	"github.com/algrv/server/internal/llm"
+	"github.com/algrv/server/internal/notifications"
 	"github.com/algrv/server/internal/retriever"
 	"github.com/algrv/server/internal/storage"
 	"github.com/algrv/server/internal/strudel"
@@ -32,9 +34,11 @@ type Server struct {
 
 // holds all external service clients (LLM, storage, retriever, agent)
 type Services struct {
-	Agent     *agent.Agent
-	LLM       llm.LLM
-	Retriever *retriever.Client
-	Storage   *storage.Client
-	Validator *strudel.Validator
+	Agent         *agent.Agent
+	Attribution   *attribution.Service
+	Notifications *notifications.Service
+	LLM           llm.LLM
+	Retriever     *retriever.Client
+	Storage       *storage.Client
+	Validator     *strudel.Validator
 }

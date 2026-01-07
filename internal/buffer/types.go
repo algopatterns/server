@@ -25,4 +25,18 @@ const (
 
 	// dirty_sessions:messages - set of session IDs with unflushed messages
 	keyDirtySessionsMessages = "dirty_sessions:messages"
+
+	// paste_lock:{sessionID} - indicates session has paste lock active
+	keyPasteLock = "paste_lock:%s"
+
+	// paste_baseline:{sessionID} - stores code at time of paste for edit distance calculation
+	keyPasteBaseline = "paste_baseline:%s"
+)
+
+// paste detection constants
+const (
+	PasteLockTTL        = 1 * time.Hour
+	PasteDeltaThreshold = 200  // characters added in single update
+	PasteLineThreshold  = 50   // lines added in single update
+	UnlockThreshold     = 0.30 // 30% edit distance required to unlock
 )
