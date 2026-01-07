@@ -20,7 +20,7 @@ const (
 			s.code,
 			s.tags,
 			s.user_id::text,
-			COALESCE(u.display_name, 'Anonymous') as author_name,
+			COALESCE(u.name, 'Anonymous') as author_name,
 			'' as url,
 			s.similarity
 		FROM search_user_strudels($1, $2) s
@@ -49,7 +49,7 @@ const (
 			us.description,
 			us.code,
 			us.tags,
-			COALESCE(u.display_name, 'Anonymous') as author_name,
+			COALESCE(u.name, 'Anonymous') as author_name,
 			'' as url,
 			ts_rank(us.searchable_tsvector, websearch_to_tsquery('english', $1)) as rank
 		FROM user_strudels us

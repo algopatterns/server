@@ -22,7 +22,7 @@ const (
 			ra.source_strudel_id,
 			us.title as source_strudel_title,
 			ra.requesting_user_id,
-			u.display_name as requesting_display_name,
+			u.name as requesting_display_name,
 			ra.similarity_score,
 			ra.created_at
 		FROM rag_attributions ra
@@ -49,7 +49,7 @@ const (
 			ra.target_strudel_id,
 			target.title as target_strudel_title,
 			ra.requesting_user_id,
-			u.display_name as requesting_display_name,
+			u.name as requesting_display_name,
 			ra.similarity_score,
 			ra.created_at
 		FROM rag_attributions ra
