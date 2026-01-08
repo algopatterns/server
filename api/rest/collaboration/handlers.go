@@ -1082,7 +1082,7 @@ func GetLastUserSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc 
 		}
 
 		// get participant count
-		participants, _ := sessionRepo.ListAllParticipants(c.Request.Context(), session.ID)
+		participants, _ := sessionRepo.ListAllParticipants(c.Request.Context(), session.ID) //nolint:errcheck // best-effort count
 		participantCount := 0
 		for _, p := range participants {
 			if p.Status == "active" {
@@ -1143,7 +1143,7 @@ func GetSessionLiveStatusHandler(sessionRepo sessions.Repository) gin.HandlerFun
 		}
 
 		// count active participants (excluding current user)
-		participants, _ := sessionRepo.ListAllParticipants(c.Request.Context(), sessionID)
+		participants, _ := sessionRepo.ListAllParticipants(c.Request.Context(), sessionID) //nolint:errcheck // best-effort count
 		participantCount := 0
 		for _, p := range participants {
 			if p.Status == "active" {
