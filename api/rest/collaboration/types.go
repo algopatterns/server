@@ -151,7 +151,7 @@ type SoftEndSessionResponse struct {
 
 // IsLiveResponse for checking if a session is currently "live"
 type IsLiveResponse struct {
-	IsLive                 bool `json:"is_live"`
-	ParticipantCount       int  `json:"participant_count"`
-	HasActiveInviteTokens  bool `json:"has_active_invite_tokens"`
+	IsLive                bool `json:"is_live"`
+	ParticipantCount      int  `json:"participant_count"`
+	HasActiveInviteTokens bool `json:"has_active_invite_tokens"`
 }
