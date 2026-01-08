@@ -91,33 +91,36 @@ func ListStrudelsHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 
 // GetStrudelHandler godoc
 // @Summary Get strudel by ID
-// @Description Get a specific strudel by ID (must be owner)
+// @Description Get a specific strudel by ID (owner or public)
 // @Tags strudels
 // @Produce json
 // @Param id path string true "Strudel ID (UUID)"
 // @Success 200 {object} StrudelDetailResponse
 // @Failure 400 {object} errors.ErrorResponse
-// @Failure 401 {object} errors.ErrorResponse
 // @Failure 404 {object} errors.ErrorResponse
 // @Router /api/v1/strudels/{id} [get]
-// @Security BearerAuth
 func GetStrudelHandler(strudelRepo *strudels.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, exists := auth.GetUserID(c)
-		if !exists {
-			errors.Unauthorized(c, "")
-			return
-		}
-
 		strudelID, ok := errors.ValidatePathUUID(c, "id")
 		if !ok {
 			return
 		}
 
-		strudel, err := strudelRepo.Get(c.Request.Context(), strudelID, userID)
-		if err != nil {
-			errors.NotFound(c, "strudel")
-			return
+		var strudel *strudels.Strudel
+		var err error
+
+		// try to get as owner first if authenticated
+		if userID, exists := auth.GetUserID(c); exists {
+			strudel, err = strudelRepo.Get(c.Request.Context(), strudelID, userID)
+		}
+
+		// fall back to public strudel if not owner
+		if strudel == nil {
+			strudel, err = strudelRepo.GetPublic(c.Request.Context(), strudelID)
+			if err != nil {
+				errors.NotFound(c, "strudel")
+				return
+			}
 		}
 
 		// fetch full conversation history from strudel_messages

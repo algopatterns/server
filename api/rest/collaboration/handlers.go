@@ -807,7 +807,7 @@ func RevokeInviteTokenHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 
 // ListLiveSessionsHandler godoc
 // @Summary List live sessions
-// @Description Get all discoverable active sessions with pagination (public endpoint, no auth required)
+// @Description Get discoverable active sessions plus user's own active sessions (if authenticated)
 // @Tags sessions
 // @Produce json
 // @Param limit query int false "Items per page (max 100)" default(20)
@@ -820,34 +820,76 @@ func ListLiveSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 		limit, offset := parsePaginationParams(c)
 		params := pagination.DefaultParams(limit, offset, 20, 100)
 
+		// check if user is authenticated (optional)
+		userID, isAuthenticated := auth.GetUserID(c)
+
+		// track user's session IDs for membership check
+		userSessionIDs := make(map[string]bool)
+
+		// if authenticated, get user's active sessions first
+		var memberSessions []LiveSessionResponse
+		if isAuthenticated {
+			userSessions, err := sessionRepo.GetUserSessions(c.Request.Context(), userID, true) // active_only=true
+			if err == nil {
+				for _, s := range userSessions {
+					userSessionIDs[s.ID] = true
+
+					participants, _ := sessionRepo.ListAllParticipants(c.Request.Context(), s.ID)
+					participantCount := len(participants)
+
+					memberSessions = append(memberSessions, LiveSessionResponse{
+						ID:               s.ID,
+						Title:            s.Title,
+						ParticipantCount: participantCount,
+						IsMember:         true,
+						CreatedAt:        s.CreatedAt,
+						LastActivity:     s.LastActivity,
+					})
+				}
+			}
+		}
+
+		// get discoverable sessions
 		liveSessions, total, err := sessionRepo.ListDiscoverableSessions(c.Request.Context(), params.Limit, params.Offset)
 		if err != nil {
 			errors.InternalError(c, "failed to retrieve live sessions", err)
 			return
 		}
 
-		responses := make([]LiveSessionResponse, 0, len(liveSessions))
+		// build response: member sessions first, then other discoverable sessions
+		responses := make([]LiveSessionResponse, 0, len(memberSessions)+len(liveSessions))
+		responses = append(responses, memberSessions...)
 
 		for _, s := range liveSessions {
-			participants, err := sessionRepo.ListAllParticipants(c.Request.Context(), s.ID)
-
-			participantCount := 0
-			if err == nil {
-				participantCount = len(participants)
+			// skip if already included as member session
+			if userSessionIDs[s.ID] {
+				continue
 			}
+
+			participants, _ := sessionRepo.ListAllParticipants(c.Request.Context(), s.ID)
+			participantCount := len(participants)
 
 			responses = append(responses, LiveSessionResponse{
 				ID:               s.ID,
 				Title:            s.Title,
 				ParticipantCount: participantCount,
+				IsMember:         false,
 				CreatedAt:        s.CreatedAt,
 				LastActivity:     s.LastActivity,
 			})
 		}
 
+		// adjust total to account for member sessions that might not be discoverable
+		adjustedTotal := total + len(memberSessions)
+		for _, s := range liveSessions {
+			if userSessionIDs[s.ID] {
+				adjustedTotal-- // don't double count
+			}
+		}
+
 		c.JSON(http.StatusOK, LiveSessionsListResponse{
 			Sessions:   responses,
-			Pagination: pagination.NewMeta(params, total),
+			Pagination: pagination.NewMeta(params, adjustedTotal),
 		})
 	}
 }

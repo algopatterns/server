@@ -8,8 +8,8 @@ import (
 )
 
 func RegisterRoutes(router *gin.RouterGroup, sessionRepo sessions.Repository, sessionEnder SessionEnder) {
-	// public endpoints (no auth)
-	router.GET("/sessions/live", ListLiveSessionsHandler(sessionRepo))
+	// live sessions (optional auth - includes user's sessions if authenticated)
+	router.GET("/sessions/live", auth.OptionalAuthMiddleware(), ListLiveSessionsHandler(sessionRepo))
 
 	// session management (authenticated)
 	router.POST("/sessions", auth.AuthMiddleware(), CreateSessionHandler(sessionRepo))
