@@ -212,13 +212,13 @@ const (
 		WHERE session_id = $1 AND status = 'active'
 	`
 
-	// get last user session (most recent active session where user is host or co-author)
+	// get last user session (most recent active session where user is host)
+	// only returns host sessions - co-authors/viewers can rejoin via invite link or live sessions list
 	queryGetLastUserSession = `
-		SELECT DISTINCT s.id, s.host_user_id, s.title, s.code, s.is_active, s.is_discoverable, s.created_at, s.ended_at, s.last_activity
+		SELECT s.id, s.host_user_id, s.title, s.code, s.is_active, s.is_discoverable, s.created_at, s.ended_at, s.last_activity
 		FROM sessions s
-		LEFT JOIN session_participants sp ON s.id = sp.session_id
 		WHERE s.is_active = true
-			AND (s.host_user_id = $1 OR (sp.user_id = $1 AND sp.role IN ('host', 'co-author') AND sp.status = 'active'))
+			AND s.host_user_id = $1
 		ORDER BY s.last_activity DESC
 		LIMIT 1
 	`

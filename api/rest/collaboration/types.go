@@ -132,6 +132,7 @@ type LiveSessionResponse struct {
 	Title            string    `json:"title"`
 	ParticipantCount int       `json:"participant_count"`
 	IsMember         bool      `json:"is_member"`
+	IsDiscoverable   bool      `json:"is_discoverable"`
 	CreatedAt        time.Time `json:"created_at"`
 	LastActivity     time.Time `json:"last_activity"`
 }

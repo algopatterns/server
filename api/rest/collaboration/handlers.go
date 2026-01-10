@@ -842,6 +842,7 @@ func ListLiveSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 						Title:            s.Title,
 						ParticipantCount: participantCount,
 						IsMember:         true,
+						IsDiscoverable:   s.IsDiscoverable,
 						CreatedAt:        s.CreatedAt,
 						LastActivity:     s.LastActivity,
 					})
@@ -874,6 +875,7 @@ func ListLiveSessionsHandler(sessionRepo sessions.Repository) gin.HandlerFunc {
 				Title:            s.Title,
 				ParticipantCount: participantCount,
 				IsMember:         false,
+				IsDiscoverable:   s.IsDiscoverable,
 				CreatedAt:        s.CreatedAt,
 				LastActivity:     s.LastActivity,
 			})
@@ -1095,6 +1097,7 @@ func GetLastUserSessionHandler(sessionRepo sessions.Repository) gin.HandlerFunc 
 			Title:            session.Title,
 			ParticipantCount: participantCount,
 			IsMember:         true,
+			IsDiscoverable:   session.IsDiscoverable,
 			CreatedAt:        session.CreatedAt,
 			LastActivity:     session.LastActivity,
 		})
