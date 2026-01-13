@@ -22,13 +22,13 @@ const (
 
 // Valid Creative Commons license values
 const (
-	LicenseCC0      = "CC0 1.0"
-	LicenseBY       = "CC BY 4.0"
-	LicenseBYSA     = "CC BY-SA 4.0"
-	LicenseBYNC     = "CC BY-NC 4.0"
-	LicenseBYNCSA   = "CC BY-NC-SA 4.0"
-	LicenseBYND     = "CC BY-ND 4.0"
-	LicenseBYNCND   = "CC BY-NC-ND 4.0"
+	LicenseCC0    = "CC0 1.0"
+	LicenseBY     = "CC BY 4.0"
+	LicenseBYSA   = "CC BY-SA 4.0"
+	LicenseBYNC   = "CC BY-NC 4.0"
+	LicenseBYNCSA = "CC BY-NC-SA 4.0"
+	LicenseBYND   = "CC BY-ND 4.0"
+	LicenseBYNCND = "CC BY-NC-ND 4.0"
 )
 
 // signalRestrictiveness defines the restrictiveness order (higher = more restrictive)
