@@ -32,6 +32,91 @@ func getCheatsheet() string {
 	return cheatsheetCache
 }
 
+// analyzeResponse determines if an LLM response is code or explanation,
+// and extracts code from markdown fences if present.
+// Returns the content to display and whether it should be treated as code.
+func analyzeResponse(response string) (content string, isCode bool) {
+	if response == "" {
+		return "", false
+	}
+
+	fenceCount := strings.Count(response, "```")
+
+	// no fences - check for raw code patterns
+	if fenceCount == 0 {
+		return response, hasCodePatterns(response)
+	}
+
+	// single fence pair - extract the code
+	if fenceCount == 2 {
+		code := extractCodeFromFence(response)
+		if code != "" {
+			return code, true
+		}
+	}
+
+	// odd fence count (1, 3, 5...) = malformed markdown
+	// even fence count > 2 (4, 6...) = multiple code blocks (tutorial/explanation)
+	// either way, keep as-is and mark as non-code
+	return response, false
+}
+
+// extractCodeFromFence extracts code content from a single markdown fence pair.
+// Returns empty string if extraction fails.
+func extractCodeFromFence(response string) string {
+	startIdx := strings.Index(response, "```")
+	if startIdx == -1 {
+		return ""
+	}
+
+	// find end of opening fence line (skip language identifier)
+	afterStart := startIdx + 3
+	newlineIdx := strings.Index(response[afterStart:], "\n")
+	if newlineIdx == -1 {
+		return ""
+	}
+	codeStart := afterStart + newlineIdx + 1
+
+	// find closing fence
+	endIdx := strings.Index(response[codeStart:], "```")
+	if endIdx == -1 {
+		return ""
+	}
+
+	code := strings.TrimSpace(response[codeStart : codeStart+endIdx])
+	return code
+}
+
+// hasCodePatterns checks if the response contains definitive Strudel code patterns.
+func hasCodePatterns(response string) bool {
+	// definitive code patterns - these only appear in actual code
+	definitivePatterns := []string{
+		"$:",       // pattern registration (always code)
+		"setcpm(",  // tempo setting (always code)
+		"sound(\"", // sound with string arg
+		"note(\"",  // note with string arg
+		"stack(",   // stack function
+		"s(\"",     // short sound alias with string arg
+		"n(\"",     // short note alias with string arg
+		").fast(",  // method chain after closing paren
+		").slow(",
+		").gain(",
+		").lpf(",
+		").hpf(",
+		").room(",
+		").delay(",
+		").bank(",
+	}
+
+	for _, pattern := range definitivePatterns {
+		if strings.Contains(response, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // formats code with line numbers for error context.
 func addLineNumbers(code string) string {
 	lines := strings.Split(code, "\n")

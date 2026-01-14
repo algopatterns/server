@@ -294,6 +294,188 @@ func containsSubstr(s, substr string) bool {
 	return false
 }
 
+func TestAnalyzeResponse(t *testing.T) {
+	tests := []struct {
+		name        string
+		response    string
+		wantContent string
+		wantIsCode  bool
+	}{
+		// raw code patterns (no fences)
+		{
+			name:        "simple sound pattern",
+			response:    `$: sound("bd hh sd hh")`,
+			wantContent: `$: sound("bd hh sd hh")`,
+			wantIsCode:  true,
+		},
+		{
+			name:        "pattern with setcpm",
+			response:    "setcpm(120)\n\n$: sound(\"bd*4\")",
+			wantContent: "setcpm(120)\n\n$: sound(\"bd*4\")",
+			wantIsCode:  true,
+		},
+		{
+			name:        "note pattern",
+			response:    `$: note("c3 e3 g3").sound("sawtooth")`,
+			wantContent: `$: note("c3 e3 g3").sound("sawtooth")`,
+			wantIsCode:  true,
+		},
+		{
+			name:        "stack pattern",
+			response:    `$: stack(sound("bd*4"), sound("hh*8"))`,
+			wantContent: `$: stack(sound("bd*4"), sound("hh*8"))`,
+			wantIsCode:  true,
+		},
+		{
+			name:        "method chain",
+			response:    `$: s("bd").fast(4).gain(0.8)`,
+			wantContent: `$: s("bd").fast(4).gain(0.8)`,
+			wantIsCode:  true,
+		},
+
+		// single fence - should extract code
+		{
+			name:        "single fence extracts code",
+			response:    "```javascript\n$: sound(\"bd\").lpf(400)\n```",
+			wantContent: `$: sound("bd").lpf(400)`,
+			wantIsCode:  true,
+		},
+		{
+			name:        "single fence with preamble extracts code",
+			response:    "Here's the code:\n```js\nsetcpm(120)\n$: sound(\"bd*4\")\n```",
+			wantContent: "setcpm(120)\n$: sound(\"bd*4\")",
+			wantIsCode:  true,
+		},
+		{
+			name:        "single fence no language identifier",
+			response:    "```\n$: sound(\"hh*8\")\n```",
+			wantContent: `$: sound("hh*8")`,
+			wantIsCode:  true,
+		},
+
+		// multiple fences - keep as explanation
+		{
+			name:        "multiple fences is explanation",
+			response:    "You can use lpf like this:\n```js\n$: sound(\"bd\").lpf(400)\n```\nOr with a pattern:\n```js\n$: sound(\"bd\").lpf(\"<400 800>\")\n```",
+			wantContent: "You can use lpf like this:\n```js\n$: sound(\"bd\").lpf(400)\n```\nOr with a pattern:\n```js\n$: sound(\"bd\").lpf(\"<400 800>\")\n```",
+			wantIsCode:  false,
+		},
+
+		// pure explanations (no code patterns, no fences)
+		{
+			name:        "pure explanation",
+			response:    "The note() function allows you to play melodic patterns. You can specify notes using letter names like c3, e3, g3.",
+			wantContent: "The note() function allows you to play melodic patterns. You can specify notes using letter names like c3, e3, g3.",
+			wantIsCode:  false,
+		},
+		{
+			name:        "empty response",
+			response:    "",
+			wantContent: "",
+			wantIsCode:  false,
+		},
+		{
+			name:        "explanation asking followup",
+			response:    "I can help you create a bassline. What tempo would you like? What style are you going for?",
+			wantContent: "I can help you create a bassline. What tempo would you like? What style are you going for?",
+			wantIsCode:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotContent, gotIsCode := analyzeResponse(tt.response)
+			if gotContent != tt.wantContent {
+				t.Errorf("analyzeResponse() content = %q, want %q", gotContent, tt.wantContent)
+			}
+			if gotIsCode != tt.wantIsCode {
+				t.Errorf("analyzeResponse() isCode = %v, want %v", gotIsCode, tt.wantIsCode)
+			}
+		})
+	}
+}
+
+func TestExtractCodeFromFence(t *testing.T) {
+	tests := []struct {
+		name     string
+		response string
+		want     string
+	}{
+		{
+			name:     "javascript fence",
+			response: "```javascript\n$: sound(\"bd\")\n```",
+			want:     `$: sound("bd")`,
+		},
+		{
+			name:     "js fence",
+			response: "```js\nsetcpm(120)\n```",
+			want:     "setcpm(120)",
+		},
+		{
+			name:     "no language identifier",
+			response: "```\n$: note(\"c3\")\n```",
+			want:     `$: note("c3")`,
+		},
+		{
+			name:     "with surrounding text",
+			response: "Here's your code:\n```js\n$: sound(\"hh*8\")\n```\nEnjoy!",
+			want:     `$: sound("hh*8")`,
+		},
+		{
+			name:     "multiline code",
+			response: "```js\nsetcpm(120)\n\n$: sound(\"bd*4\")\n$: sound(\"hh*8\")\n```",
+			want:     "setcpm(120)\n\n$: sound(\"bd*4\")\n$: sound(\"hh*8\")",
+		},
+		{
+			name:     "no fence",
+			response: "$: sound(\"bd\")",
+			want:     "",
+		},
+		{
+			name:     "unclosed fence",
+			response: "```js\n$: sound(\"bd\")",
+			want:     "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractCodeFromFence(tt.response)
+			if got != tt.want {
+				t.Errorf("extractCodeFromFence() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHasCodePatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		response string
+		want     bool
+	}{
+		{"pattern registration", "$: sound(\"bd\")", true},
+		{"setcpm", "setcpm(120)", true},
+		{"sound with string", "sound(\"bd hh\")", true},
+		{"note with string", "note(\"c3 e3\")", true},
+		{"stack", "stack(a, b)", true},
+		{"method chain fast", "x).fast(2)", true},
+		{"method chain gain", "x).gain(0.5)", true},
+		{"plain text", "This is just text", false},
+		{"mentions note() function", "The note() function is useful", false},
+		{"empty", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasCodePatterns(tt.response)
+			if got != tt.want {
+				t.Errorf("hasCodePatterns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestEnhancedInstructionsPresent(t *testing.T) {
 	instructions := getInstructions()
 

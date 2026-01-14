@@ -128,8 +128,11 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		})
 	}
 
+	// analyze response to determine if it's code and extract from markdown if needed
+	content, isCode := analyzeResponse(response.Text)
+
 	return &GenerateResponse{
-		Code:              response.Text,
+		Code:              content,
 		DocsRetrieved:     len(docs),
 		ExamplesRetrieved: len(examples),
 		Examples:          examples,
@@ -138,7 +141,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		DocReferences:     docRefs,
 		Model:             textGenerator.Model(),
 		IsActionable:      true,
-		IsCodeResponse:    analysis.IsCodeRequest,
+		IsCodeResponse:    isCode,
 		InputTokens:       totalInputTokens,
 		OutputTokens:      totalOutputTokens,
 		DidRetry:          didRetry,
