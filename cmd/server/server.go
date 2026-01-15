@@ -8,6 +8,7 @@ import (
 	"github.com/algrv/server/algorave/sessions"
 	"github.com/algrv/server/algorave/strudels"
 	"github.com/algrv/server/algorave/users"
+	"github.com/algrv/server/internal/botdefense"
 	"github.com/algrv/server/internal/buffer"
 	"github.com/algrv/server/internal/ccsignals"
 	"github.com/algrv/server/internal/config"
@@ -97,6 +98,20 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	if ccSignals != nil {
 		detector = ccSignals.Detector
 	}
+
+	// initialize bot defense system
+	botDefenseConfig := botdefense.DefaultConfig()
+	botDefenseStore := botdefense.NewStore(sessionBuffer.Client(), botDefenseConfig)
+	botDefense := botdefense.New(botDefenseConfig, botDefenseStore)
+
+	// start cache cleaner for crawler verification
+	botDefense.StartCacheCleaner(ctx, 10*time.Minute)
+
+	logger.Info("bot defense initialized",
+		"enabled", botDefenseConfig.Enabled,
+		"rate_limit", botDefenseConfig.RateLimit,
+		"honeypot_paths", len(botDefenseConfig.HoneypotPaths),
+	)
 
 	hub := ws.NewHub()
 
@@ -188,6 +203,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		flusher:        flusher,
 		cleanupService: cleanupService,
 		ccSignals:      ccSignals,
+		botDefense:     botDefense,
 	}
 
 	RegisterRoutes(router, server)

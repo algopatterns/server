@@ -16,6 +16,12 @@ import (
 // sets up all API routes and middleware
 func RegisterRoutes(router *gin.Engine, server *Server) {
 	router.Use(CORSMiddleware())
+
+	// bot defense middleware - runs after CORS, before other routes
+	if server.botDefense != nil {
+		router.Use(server.botDefense.Middleware())
+	}
+
 	router.GET("/health", health.Handler)
 
 	v1 := router.Group("/api/v1")
