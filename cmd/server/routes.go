@@ -1,15 +1,15 @@
 package main
 
 import (
-	"github.com/algrv/server/api/rest/admin"
-	"github.com/algrv/server/api/rest/agent"
-	"github.com/algrv/server/api/rest/auth"
-	"github.com/algrv/server/api/rest/collaboration"
-	"github.com/algrv/server/api/rest/health"
-	"github.com/algrv/server/api/rest/notifications"
-	"github.com/algrv/server/api/rest/strudels"
-	"github.com/algrv/server/api/rest/users"
-	"github.com/algrv/server/api/websocket"
+	"codeberg.org/algorave/server/api/rest/admin"
+	"codeberg.org/algorave/server/api/rest/agent"
+	"codeberg.org/algorave/server/api/rest/auth"
+	"codeberg.org/algorave/server/api/rest/collaboration"
+	"codeberg.org/algorave/server/api/rest/health"
+	"codeberg.org/algorave/server/api/rest/notifications"
+	"codeberg.org/algorave/server/api/rest/strudels"
+	"codeberg.org/algorave/server/api/rest/users"
+	"codeberg.org/algorave/server/api/websocket"
 	"github.com/gin-gonic/gin"
 )
 

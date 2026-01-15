@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/algrv/server/internal/logger"
+	"codeberg.org/algorave/server/internal/logger"
 )
 
 // CleanupService handles automatic expiry of stale sessions

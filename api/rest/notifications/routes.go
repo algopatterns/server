@@ -3,8 +3,8 @@ package notifications
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/algrv/server/internal/auth"
-	"github.com/algrv/server/internal/notifications"
+	"codeberg.org/algorave/server/internal/auth"
+	"codeberg.org/algorave/server/internal/notifications"
 )
 
 func RegisterRoutes(router *gin.RouterGroup, svc *notifications.Service) {

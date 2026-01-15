@@ -6,10 +6,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/algrv/server/internal/errors"
-	"github.com/algrv/server/internal/notifications"
+	"codeberg.org/algorave/server/internal/errors"
+	"codeberg.org/algorave/server/internal/notifications"
 )
 
+// @Summary List notifications
+// @Description Get user's notifications with optional filtering
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param limit query int false "Max notifications to return (1-100)" default(50)
+// @Param unread query boolean false "Only return unread notifications"
+// @Success 200 {object} ListResponse
+// @Failure 401 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/notifications [get]
 func ListHandler(svc *notifications.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("user_id")
@@ -64,6 +76,18 @@ func ListHandler(svc *notifications.Service) gin.HandlerFunc {
 	}
 }
 
+// @Summary Mark notification as read
+// @Description Mark a specific notification as read
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param id path string true "Notification ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} errors.ErrorResponse
+// @Failure 401 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/notifications/{id}/read [post]
 func MarkReadHandler(svc *notifications.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("user_id")
@@ -92,6 +116,16 @@ func MarkReadHandler(svc *notifications.Service) gin.HandlerFunc {
 	}
 }
 
+// @Summary Mark all notifications as read
+// @Description Mark all user's notifications as read
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Success 204 "No Content"
+// @Failure 401 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/notifications/read-all [post]
 func MarkAllReadHandler(svc *notifications.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("user_id")
@@ -115,6 +149,16 @@ func MarkAllReadHandler(svc *notifications.Service) gin.HandlerFunc {
 	}
 }
 
+// @Summary Get unread notification count
+// @Description Get the count of unread notifications for the user
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Success 200 {object} UnreadCountResponse
+// @Failure 401 {object} errors.ErrorResponse
+// @Failure 500 {object} errors.ErrorResponse
+// @Security BearerAuth
+// @Router /api/v1/notifications/unread-count [get]
 func UnreadCountHandler(svc *notifications.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("user_id")
