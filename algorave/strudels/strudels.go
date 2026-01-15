@@ -59,7 +59,13 @@ func (r *Repository) Create(
 		}
 	}
 
-	err := r.db.QueryRow(
+	// explicitly marshal conversation history to JSON for pgx compatibility
+	conversationHistoryJSON, err := json.Marshal(req.ConversationHistory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal conversation history: %w", err)
+	}
+
+	err = r.db.QueryRow(
 		ctx,
 		queryCreate,
 		userID,
@@ -73,7 +79,7 @@ func (r *Repository) Create(
 		req.Description,
 		tags,
 		categories,
-		req.ConversationHistory,
+		conversationHistoryJSON,
 	).Scan(
 		&strudel.ID,
 		&strudel.UserID,
@@ -336,6 +342,17 @@ func (r *Repository) Update(
 		aiAssistCount = &count
 	}
 
+	// explicitly marshal conversation history to JSON for pgx compatibility
+	// use nil if no history provided to let COALESCE keep existing value
+	var conversationHistoryJSON interface{}
+	if len(req.ConversationHistory) > 0 {
+		jsonBytes, err := json.Marshal(req.ConversationHistory)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal conversation history: %w", err)
+		}
+		conversationHistoryJSON = jsonBytes
+	}
+
 	err := r.db.QueryRow(
 		ctx,
 		queryUpdate,
@@ -348,7 +365,7 @@ func (r *Repository) Update(
 		req.Description,
 		req.Tags,
 		req.Categories,
-		req.ConversationHistory,
+		conversationHistoryJSON,
 		strudelID,
 		userID,
 	).Scan(
