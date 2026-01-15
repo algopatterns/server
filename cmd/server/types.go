@@ -6,6 +6,7 @@ import (
 	"github.com/algrv/server/algorave/users"
 	"github.com/algrv/server/internal/agent"
 	"github.com/algrv/server/internal/attribution"
+	"github.com/algrv/server/internal/botdefense"
 	"github.com/algrv/server/internal/buffer"
 	"github.com/algrv/server/internal/config"
 	"github.com/algrv/server/internal/llm"
@@ -32,6 +33,7 @@ type Server struct {
 	flusher        *buffer.Flusher
 	cleanupService *sessions.CleanupService
 	ccSignals      *CCSignalsSystem
+	botDefense     *botdefense.Defense
 }
 
 // holds all external service clients (LLM, storage, retriever, agent)
