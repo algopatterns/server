@@ -10,7 +10,6 @@ import (
 	"codeberg.org/algorave/server/internal/buffer"
 	"codeberg.org/algorave/server/internal/config"
 	"codeberg.org/algorave/server/internal/llm"
-	"codeberg.org/algorave/server/internal/notifications"
 	"codeberg.org/algorave/server/internal/retriever"
 	"codeberg.org/algorave/server/internal/storage"
 	"codeberg.org/algorave/server/internal/strudel"
@@ -38,11 +37,10 @@ type Server struct {
 
 // holds all external service clients (LLM, storage, retriever, agent)
 type Services struct {
-	Agent         *agent.Agent
-	Attribution   *attribution.Service
-	Notifications *notifications.Service
-	LLM           llm.LLM
-	Retriever     *retriever.Client
-	Storage       *storage.Client
-	Validator     *strudel.Validator
+	Agent       *agent.Agent
+	Attribution *attribution.Service
+	LLM         llm.LLM
+	Retriever   *retriever.Client
+	Storage     *storage.Client
+	Validator   *strudel.Validator
 }

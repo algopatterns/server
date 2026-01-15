@@ -11,7 +11,6 @@ import (
 	"codeberg.org/algorave/server/internal/config"
 	"codeberg.org/algorave/server/internal/llm"
 	"codeberg.org/algorave/server/internal/logger"
-	"codeberg.org/algorave/server/internal/notifications"
 	"codeberg.org/algorave/server/internal/retriever"
 	"codeberg.org/algorave/server/internal/storage"
 	"codeberg.org/algorave/server/internal/strudel"
@@ -44,16 +43,14 @@ func InitializeServices(_ *config.Config, db *pgxpool.Pool) (*Services, error) {
 
 	agentClient := agent.NewWithValidator(retrieverClient, llmClient, validator)
 	attrService := attribution.New(db)
-	notifService := notifications.New(db)
 
 	return &Services{
-		Agent:         agentClient,
-		Attribution:   attrService,
-		Notifications: notifService,
-		LLM:           llmClient,
-		Retriever:     retrieverClient,
-		Storage:       storageClient,
-		Validator:     validator,
+		Agent:       agentClient,
+		Attribution: attrService,
+		LLM:         llmClient,
+		Retriever:   retrieverClient,
+		Storage:     storageClient,
+		Validator:   validator,
 	}, nil
 }
 
