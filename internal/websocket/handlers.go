@@ -57,8 +57,10 @@ func CodeUpdateHandler(sessionRepo sessions.Repository, detector *ccsignals.Dete
 				handlePasteDetection(ctx, hub, client, detector, previousCode, payload.Code)
 			} else if payload.Source == "loaded_strudel" {
 				// clear any existing paste lock when loading a new/fresh strudel
-				wasLocked, _ := detector.IsLocked(ctx, client.SessionID)
-				if wasLocked {
+				wasLocked, err := detector.IsLocked(ctx, client.SessionID)
+				if err != nil {
+					logger.ErrorErr(err, "failed to check lock status on strudel load", "session_id", client.SessionID)
+				} else if wasLocked {
 					if err := detector.RemoveLock(ctx, client.SessionID); err != nil {
 						logger.ErrorErr(err, "failed to clear paste lock on strudel load", "session_id", client.SessionID)
 					} else {
