@@ -131,6 +131,8 @@ func (d *Defense) handleHoneypot(ctx context.Context, c *gin.Context, ip, path s
 	} else {
 		Tarpit(c, d.config.TarpitDuration, d.config.TarpitChunkDelay)
 	}
+
+	c.Abort()
 }
 
 func (d *Defense) handleTrapped(c *gin.Context, ip string, reason TrapReason) {
@@ -144,6 +146,7 @@ func (d *Defense) handleTrapped(c *gin.Context, ip string, reason TrapReason) {
 	default:
 		ServePoisonedJSON(c)
 	}
+	c.Abort()
 }
 
 func (d *Defense) handleRateLimited(c *gin.Context, ip string) {
