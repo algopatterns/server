@@ -175,6 +175,15 @@ func (d *Detector) SetLock(ctx context.Context, sessionID, baselineCode string, 
 	return d.store.SetLock(ctx, sessionID, baselineCode, ttl)
 }
 
+// removes a paste lock for a session
+func (d *Detector) RemoveLock(ctx context.Context, sessionID string) error {
+	if d.store == nil {
+		return ErrNilStore
+	}
+
+	return d.store.RemoveLock(ctx, sessionID)
+}
+
 // determines if a code update has a large delta
 func (d *Detector) IsLargeDelta(previousCode, newCode string) bool {
 	// significant growth (paste addition)
