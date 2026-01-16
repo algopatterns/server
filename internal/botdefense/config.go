@@ -148,6 +148,7 @@ func DefaultConfig() *Config {
 			"/healthz",
 			"/ready",
 			"/metrics",
+			"/api/v1/ws", // websocket connections are persistent, not burst requests
 		},
 	}
 }
