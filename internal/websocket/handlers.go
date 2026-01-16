@@ -80,8 +80,10 @@ func CodeUpdateHandler(sessionRepo sessions.Repository, detector *ccsignals.Dete
 			// don't fail the request, broadcast still happens
 		}
 
-		// add display name to payload
+		// enrich payload with sender information for cursor tracking
 		payload.DisplayName = client.DisplayName
+		payload.UserID = client.UserID
+		payload.Role = client.Role
 
 		// create new message with updated payload
 		broadcastMsg, err := NewMessage(TypeCodeUpdate, client.SessionID, client.UserID, payload)

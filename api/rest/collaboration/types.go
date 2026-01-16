@@ -155,4 +155,5 @@ type IsLiveResponse struct {
 	IsLive                bool `json:"is_live"`
 	ParticipantCount      int  `json:"participant_count"`
 	HasActiveInviteTokens bool `json:"has_active_invite_tokens"`
+	IsDiscoverable        bool `json:"is_discoverable"`
 }

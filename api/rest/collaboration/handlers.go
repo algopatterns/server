@@ -1213,13 +1213,14 @@ func GetSessionLiveStatusHandler(sessionRepo sessions.Repository) gin.HandlerFun
 			hasActiveTokens = false
 		}
 
-		// session is "live" if it has multiple participants OR has active invite tokens
-		isLive := participantCount > 1 || hasActiveTokens
+		// session is "live" if it has multiple participants OR has active invite tokens OR is discoverable (public)
+		isLive := participantCount > 1 || hasActiveTokens || session.IsDiscoverable
 
 		c.JSON(http.StatusOK, IsLiveResponse{
 			IsLive:                isLive,
 			ParticipantCount:      participantCount,
 			HasActiveInviteTokens: hasActiveTokens,
+			IsDiscoverable:        session.IsDiscoverable,
 		})
 	}
 }

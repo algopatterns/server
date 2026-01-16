@@ -114,6 +114,8 @@ type CodeUpdatePayload struct {
 	CursorLine  int    `json:"cursor_line,omitempty"`
 	CursorCol   int    `json:"cursor_col,omitempty"`
 	DisplayName string `json:"display_name,omitempty"`
+	UserID      string `json:"user_id,omitempty"`
+	Role        string `json:"role,omitempty"` // "host", "co-author" - for cursor tracking
 	Source      string `json:"source,omitempty"` // 'typed' | 'loaded_strudel' | 'forked' | 'paste'
 }
 
