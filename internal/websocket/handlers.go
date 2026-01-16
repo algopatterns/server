@@ -85,14 +85,32 @@ func CodeUpdateHandler(sessionRepo sessions.Repository, detector *ccsignals.Dete
 
 // uses the ccsignals detector to manage paste locks
 func handlePasteDetection(ctx context.Context, hub *Hub, client *Client, detector *ccsignals.Detector, previousCode, newCode string) {
+	deltaChars := len(newCode) - len(previousCode)
+	logger.Debug("paste detection check",
+		"session_id", client.SessionID,
+		"delta_chars", deltaChars,
+		"previous_len", len(previousCode),
+		"new_len", len(newCode),
+	)
+
 	// check if this is a large delta (potential paste)
 	if detector.IsLargeDelta(previousCode, newCode) {
+		logger.Info("large delta detected",
+			"session_id", client.SessionID,
+			"delta_chars", deltaChars,
+		)
 		// detect paste and get result
 		result, err := detector.DetectPaste(ctx, client.SessionID, client.UserID, previousCode, newCode)
 		if err != nil {
 			logger.ErrorErr(err, "paste detection failed", "session_id", client.SessionID)
 			return
 		}
+
+		logger.Info("paste detection result",
+			"session_id", client.SessionID,
+			"should_lock", result.ShouldLock,
+			"reason", result.Reason,
+		)
 
 		if result.ShouldLock {
 			// check if already locked (preserve original baseline)

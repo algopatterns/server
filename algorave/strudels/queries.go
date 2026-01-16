@@ -108,13 +108,13 @@ const (
 	`
 
 	// paste detection: check if code matches any public strudel that allows AI (for fork validation)
-	// excludes strudels with no-ai CC signal since those should still trigger paste lock
+	// requires explicit permissive signal - NULL/missing defaults to no-ai (restrictive)
 	queryPublicStrudelExistsWithCodeAllowsAI = `
 		SELECT EXISTS(
 			SELECT 1 FROM user_strudels
 			WHERE is_public = true
 			  AND code = $1
-			  AND (cc_signal IS NULL OR cc_signal != 'no-ai')
+			  AND cc_signal IN ('cc-cr', 'cc-dc', 'cc-ec', 'cc-op')
 		)
 	`
 
