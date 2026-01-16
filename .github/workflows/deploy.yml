@@ -66,7 +66,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           source: "docker-compose.yml"
-          target: "~/algorave"
+          target: "/home/ubuntu/algorave"
 
       - name: Deploy to Lightsail
         uses: appleboy/ssh-action@v1.0.3
@@ -75,7 +75,11 @@ jobs:
           username: ubuntu
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            cd ~/algorave
+            cd /home/ubuntu/algorave
+
+            # stop old standalone containers (one-time migration)
+            docker stop algorave algorave-staging 2>/dev/null || true
+            docker rm algorave algorave-staging 2>/dev/null || true
 
             # copy env file to compose directory
             cp ~/.env .env
@@ -84,9 +88,9 @@ jobs:
             export IMAGE_TAG=${{ secrets.DOCKERHUB_USERNAME }}/algorave-server:${{ steps.vars.outputs.tag }}
             export PORT=${{ steps.vars.outputs.port }}
 
-            # pull and restart
-            docker compose pull
-            docker compose up -d
+            # pull and restart with compose (using docker-compose v1 syntax)
+            docker-compose pull
+            docker-compose up -d
             docker image prune -f
 
       - name: Deployment summary
