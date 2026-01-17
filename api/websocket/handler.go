@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"codeberg.org/algorave/server/algorave/sessions"
+	"codeberg.org/algorave/server/algorave/users"
 	"codeberg.org/algorave/server/internal/auth"
 	"codeberg.org/algorave/server/internal/errors"
 	"codeberg.org/algorave/server/internal/logger"
@@ -23,7 +24,7 @@ var upgrader = websocket.Upgrader{
 
 // handles WebSocket connections for real-time collaboration.
 // see docs/websocket/API.md for usage documentation.
-func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerFunc {
+func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository, userRepo *users.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var params ConnectParams
 		if err := c.ShouldBindQuery(&params); err != nil {
@@ -60,8 +61,13 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 					}
 
 					session = newSession
-					displayName = "Host"
 					role = "host"
+					// get user's actual name, default to "Host" if not found
+					if user, err := userRepo.FindByID(ctx, userID); err == nil && user.Name != "" {
+						displayName = user.Name
+					} else {
+						displayName = "Host"
+					}
 
 					// copy code from previous session if provided
 					if params.PreviousSessionID != "" {
@@ -126,9 +132,15 @@ func WebSocketHandler(hub *ws.Hub, sessionRepo sessions.Repository) gin.HandlerF
 
 					if userID == session.HostUserID {
 						role = "host"
-						displayName = "Host"
 					} else {
 						role = "viewer"
+					}
+					// get user's actual name, default to role if not found
+					if user, err := userRepo.FindByID(ctx, userID); err == nil && user.Name != "" {
+						displayName = user.Name
+					} else if role == "host" {
+						displayName = "Host"
+					} else {
 						displayName = "Viewer"
 					}
 				}
