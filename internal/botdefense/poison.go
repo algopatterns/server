@@ -8,28 +8,34 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// cryptoRandInt returns a random int in [0, max) using crypto/rand
-func cryptoRandInt(max int) int {
-	if max <= 0 {
+// cryptoRandInt returns a random int in [0, n) using crypto/rand
+func cryptoRandInt(n int) int {
+	if n <= 0 {
 		return 0
 	}
 	var b [8]byte
-	_, _ = rand.Read(b[:])
-	return int(binary.BigEndian.Uint64(b[:]) % uint64(max))
+	if _, err := rand.Read(b[:]); err != nil {
+		return 0
+	}
+	return int(binary.BigEndian.Uint64(b[:]) % uint64(n)) //nolint:gosec // safe: n is always small
 }
 
 // cryptoRandInt31 returns a random int32 using crypto/rand
 func cryptoRandInt31() int32 {
 	var b [4]byte
-	_, _ = rand.Read(b[:])
-	return int32(binary.BigEndian.Uint32(b[:]) & 0x7fffffff)
+	if _, err := rand.Read(b[:]); err != nil {
+		return 0
+	}
+	return int32(binary.BigEndian.Uint32(b[:]) & 0x7fffffff) //nolint:gosec // safe: masked to positive
 }
 
 // cryptoRandInt63 returns a random int64 using crypto/rand
 func cryptoRandInt63() int64 {
 	var b [8]byte
-	_, _ = rand.Read(b[:])
-	return int64(binary.BigEndian.Uint64(b[:]) & 0x7fffffffffffffff)
+	if _, err := rand.Read(b[:]); err != nil {
+		return 0
+	}
+	return int64(binary.BigEndian.Uint64(b[:]) & 0x7fffffffffffffff) //nolint:gosec // safe: masked to positive
 }
 
 // serves fake strudel data to bots
