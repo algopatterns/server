@@ -39,7 +39,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Enabled:          true,
-		RateLimit:        100,
+		RateLimit:        200,
 		RateLimitWindow:  time.Minute,
 		TrapTTL:          24 * time.Hour,
 		TarpitDuration:   60 * time.Second,

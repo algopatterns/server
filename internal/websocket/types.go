@@ -69,7 +69,7 @@ const (
 	maxMessageSize = 512 * 1024 // 512 KB
 
 	// rate limiting constants
-	maxCodeUpdatesPerSecond  = 10 // maximum code updates per second
+	maxCodeUpdatesPerSecond  = 30 // maximum code updates per second
 	maxChatMessagesPerMinute = 20 // maximum chat messages per minute
 
 	// content size limits
