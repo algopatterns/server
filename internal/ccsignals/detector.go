@@ -200,18 +200,43 @@ func (d *Detector) IsLargeDelta(previousCode, newCode string) bool {
 
 	// large replacement (select-all + paste)
 	// detects when user pastes over existing code of similar size
-	// only applies when sizes are similar (within 50%) - not for deletions
+	// must distinguish between: deletion (new code is subset of old) vs replacement (new code is different)
 	sizeDiff := abs(len(newCode) - len(previousCode))
 	avgSize := (len(newCode) + len(previousCode)) / 2
 	isSimilarSize := avgSize > 0 && float64(sizeDiff)/float64(avgSize) < 0.5
 
 	if isSimilarSize && len(newCode) >= d.config.PasteDeltaThreshold && len(previousCode) >= d.config.PasteDeltaThreshold/2 {
-		// both have substantial content - check if content was replaced by seeing if the start of old code appears in new code
-		sampleLen := min(100, len(previousCode))
-
-		if !strings.Contains(newCode, previousCode[:sampleLen]) {
-			return true
+		// check if new code is mostly contained in old code (deletion) vs mostly new content (replacement)
+		// if new code is a substring of old code, it's likely a deletion
+		if strings.Contains(previousCode, newCode) {
+			return false
 		}
+
+		// check if significant portion of new code lines existed in old code
+		// if >70% of new lines existed in old, it's likely a deletion, not a paste
+		newCodeLines := strings.Split(newCode, "\n")
+		matchingLines := 0
+		for _, line := range newCodeLines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" {
+				continue // skip empty lines
+			}
+			if strings.Contains(previousCode, trimmed) {
+				matchingLines++
+			}
+		}
+		nonEmptyLines := 0
+		for _, line := range newCodeLines {
+			if strings.TrimSpace(line) != "" {
+				nonEmptyLines++
+			}
+		}
+		if nonEmptyLines > 0 && float64(matchingLines)/float64(nonEmptyLines) > 0.7 {
+			return false // most lines existed before, likely a deletion
+		}
+
+		// new code is substantially different - likely a replacement/paste
+		return true
 	}
 
 	return false
