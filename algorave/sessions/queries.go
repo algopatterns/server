@@ -183,8 +183,8 @@ const (
 	`
 
 	queryAddChatMessage = `
-		INSERT INTO session_messages (session_id, user_id, role, content, display_name, avatar_url)
-		VALUES ($1, $2, 'user', $3, $4, $5)
+		INSERT INTO session_messages (session_id, user_id, role, content, display_name, avatar_url, message_type)
+		VALUES ($1, $2, 'user', $3, $4, $5, 'chat')
 		RETURNING id, session_id, user_id, role, content, display_name, avatar_url, created_at
 	`
 
