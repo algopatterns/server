@@ -42,19 +42,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
 
-	// if query is not actionable, return clarifying questions
-	if !analysis.IsActionable {
-		return &GenerateResponse{
-			IsActionable:        false,
-			IsCodeResponse:      false,
-			ClarifyingQuestions: analysis.ClarifyingQuestions,
-			DocsRetrieved:       0,
-			ExamplesRetrieved:   0,
-			Model:               textGenerator.Model(),
-		}, nil
-	}
-
-	// proceed with code generation for actionable queries
+	// always proceed to generator - it handles questions, explanations, and code
 	docs, err := a.retriever.HybridSearchDocs(ctx, req.UserQuery, req.EditorState, 3)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve docs: %w", err)
@@ -71,6 +59,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		Docs:          docs,
 		Examples:      examples,
 		Conversations: req.ConversationHistory,
+		QueryAnalysis: analysis,
 	})
 
 	// call LLM for code generation (uses custom generator if BYOK)
@@ -84,16 +73,20 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 	didRetry := false
 	var validationError string
 
-	// validate and retry if validator is available
-	if a.validator != nil && response.Text != "" {
-		result, err := a.validator.Validate(ctx, response.Text)
+	// analyze response to determine if it's code and extract from markdown if needed
+	content, isCode := analyzeResponse(response.Text)
+
+	// validate and retry only for code responses
+	if a.validator != nil && isCode && content != "" {
+		result, err := a.validator.Validate(ctx, content)
 		if err == nil && !result.Valid {
 			retryResponse, retryErr := a.retryWithValidationError(
 				ctx, textGenerator, systemPrompt, req.UserQuery,
-				req.ConversationHistory, response.Text, result,
+				req.ConversationHistory, content, result,
 			)
 			if retryErr == nil {
-				response = retryResponse
+				// re-analyze the retry response
+				content, isCode = analyzeResponse(retryResponse.Text)
 				totalInputTokens += retryResponse.Usage.InputTokens
 				totalOutputTokens += retryResponse.Usage.OutputTokens
 				didRetry = true
@@ -127,9 +120,6 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 			URL:          doc.PageURL,
 		})
 	}
-
-	// analyze response to determine if it's code and extract from markdown if needed
-	content, isCode := analyzeResponse(response.Text)
 
 	return &GenerateResponse{
 		Code:              content,
