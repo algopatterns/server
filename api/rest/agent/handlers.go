@@ -431,13 +431,13 @@ func GenerateStreamHandler(agentClient *agentcore.Agent, strudelRepo *strudels.R
 		})
 
 		if err != nil {
-			// send error event
+			// send error event (best-effort, client may have disconnected)
 			errorEvent := agentcore.StreamEvent{
 				Type:  "error",
 				Error: err.Error(),
 			}
-			eventJSON, _ := json.Marshal(errorEvent)
-			fmt.Fprintf(c.Writer, "data: %s\n\n", eventJSON)
+			eventJSON, _ := json.Marshal(errorEvent)       //nolint:errcheck
+			fmt.Fprintf(c.Writer, "data: %s\n\n", eventJSON) //nolint:errcheck
 			c.Writer.Flush()
 		}
 	}

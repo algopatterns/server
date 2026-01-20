@@ -124,7 +124,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 		if needDocsTopic != "" {
 			// clear old cache and fetch fresh docs for the new topic
 			if req.RAGCache != nil {
-				_ = req.RAGCache.ClearRAGCache(ctx, req.SessionID)
+				_ = req.RAGCache.ClearRAGCache(ctx, req.SessionID) //nolint:errcheck
 			}
 
 			// fetch docs for the requested topic
@@ -149,7 +149,7 @@ func (a *Agent) Generate(ctx context.Context, req GenerateRequest) (*GenerateRes
 					Examples: examplesToCache(examples),
 					Query:    needDocsTopic,
 				}
-				_ = req.RAGCache.SetRAGCache(ctx, req.SessionID, cacheData)
+				_ = req.RAGCache.SetRAGCache(ctx, req.SessionID, cacheData) //nolint:errcheck
 			}
 
 			// rebuild prompt with fresh docs and regenerate
@@ -290,7 +290,7 @@ func (a *Agent) GenerateStream(ctx context.Context, req GenerateRequest, onEvent
 				Examples: examplesToCache(examples),
 				Query:    req.UserQuery,
 			}
-			_ = req.RAGCache.SetRAGCache(ctx, req.SessionID, cacheData)
+			_ = req.RAGCache.SetRAGCache(ctx, req.SessionID, cacheData) //nolint:errcheck
 		}
 	}
 

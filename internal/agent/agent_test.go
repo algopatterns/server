@@ -70,7 +70,7 @@ func (m *mockLLM) GenerateTextStream(ctx context.Context, req llm.TextGeneration
 	}
 	// send full response as a single chunk
 	if onChunk != nil {
-		_ = onChunk(resp.Text)
+		_ = onChunk(resp.Text) //nolint:errcheck
 	}
 	return resp, nil
 }
