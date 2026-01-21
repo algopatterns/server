@@ -47,6 +47,7 @@ func (r *Repository) Create(
 
 	// if forked, inherit most restrictive cc_signal from parent
 	ccSignal := req.CCSignal
+
 	if req.ForkedFrom != nil {
 		var parentSignal *CCSignal
 
@@ -140,6 +141,7 @@ func (r *Repository) List(ctx context.Context, userID string, limit, offset int,
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, baseWhere, argIndex, argIndex+1)
+
 	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(ctx, listQuery, args...)
@@ -219,6 +221,7 @@ func (r *Repository) ListPublic(ctx context.Context, limit, offset int, filter L
 		ORDER BY s.created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, baseWhere, argIndex, argIndex+1)
+
 	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(ctx, listQuery, args...)
@@ -358,12 +361,21 @@ func (r *Repository) Update(
 	// explicitly marshal conversation history to JSON string for pgx JSONB compatibility
 	// use nil if no history provided to let COALESCE keep existing value
 	var conversationHistoryJSON interface{}
+
 	if len(req.ConversationHistory) > 0 {
 		jsonBytes, err := json.Marshal(req.ConversationHistory)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal conversation history: %w", err)
 		}
 		conversationHistoryJSON = string(jsonBytes)
+	}
+
+	// convert CCSignal to *string for pgx compatibility (custom types may not serialize correctly)
+	var ccSignalStr *string
+
+	if req.CCSignal != nil {
+		s := string(*req.CCSignal)
+		ccSignalStr = &s
 	}
 
 	err := r.db.QueryRow(
@@ -373,7 +385,7 @@ func (r *Repository) Update(
 		req.Code,
 		req.IsPublic,
 		req.License,
-		req.CCSignal,
+		ccSignalStr,
 		aiAssistCount,
 		req.Description,
 		req.Tags,
