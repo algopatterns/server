@@ -370,14 +370,6 @@ func (r *Repository) Update(
 		conversationHistoryJSON = string(jsonBytes)
 	}
 
-	// convert CCSignal to *string for pgx compatibility (custom types may not serialize correctly)
-	var ccSignalStr *string
-
-	if req.CCSignal != nil {
-		s := string(*req.CCSignal)
-		ccSignalStr = &s
-	}
-
 	err := r.db.QueryRow(
 		ctx,
 		queryUpdate,
@@ -385,7 +377,7 @@ func (r *Repository) Update(
 		req.Code,
 		req.IsPublic,
 		req.License,
-		ccSignalStr,
+		req.CCSignal,
 		aiAssistCount,
 		req.Description,
 		req.Tags,
